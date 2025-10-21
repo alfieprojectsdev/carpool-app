@@ -102,15 +102,4 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// GET /api/locations - Get all locations for dropdowns
-router.get('/locations', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM locations ORDER BY location_name');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching locations:', err);
-    res.status(500).json({ error: 'Failed to fetch locations' });
-  }
-});
-
 module.exports = router;
