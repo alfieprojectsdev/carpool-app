@@ -21,3 +21,5 @@ npm-debug.log*
 # misc
 docs/
 scripts/
+# Worktrees directory
+.trees/
