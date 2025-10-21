@@ -227,3 +227,18 @@ Once this works, Week 2 will be adding a "Post Ride" form.
 - **Cause**: DB_PASSWORD set to empty string in .env
 - **Fix**: Either remove DB_PASSWORD entirely (for peer auth) OR set it to actual password
 - **Our setup**: Using password auth with DB_PASSWORD=mannersmakethman
+
+## Progress Log
+
+### 2025-10-21 - Feature: Post Ride Form
+- ✅ Implemented full ride posting workflow
+- ✅ User creation integrated
+- ✅ Form validation working
+- ✅ Tested in worktree before merging
+- **Commit**: feat: Add Post Ride form with full CRUD functionality
+- **Merged to main**: 2025-10-21
+
+### Next: Filter/Search Functionality
+- [ ] Filter by route
+- [ ] Filter by day
+- [ ] Filter by type (offer/request)
