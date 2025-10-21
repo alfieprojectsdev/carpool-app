@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carpool - Phirst Park Homes</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>🚗 Carpool Matcher</h1>
+        <p>Find rideshares in your community</p>
+    </header>
+
+    <main>
+        <section id="rides-list">
+            <h2>Available Rides</h2>
+            <div id="rides-container">
+                <!-- Rides will be loaded here via JavaScript -->
+                <p class="loading">Loading rides...</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Fetch and display rides
+        async function loadRides() {
+            try {
+                const response = await fetch('/api/rides');
+                const rides = await response.json();
+                
+                const container = document.getElementById('rides-container');
+                
+                if (rides.length === 0) {
+                    container.innerHTML = '<p class="empty">No active rides yet. Be the first to post!</p>';
+                    return;
+                }
+                
+                container.innerHTML = rides.map(ride => `
+                    <div class="ride-card">
+                        <div class="ride-header">
+                            <span class="badge ${ride.post_type}">${ride.post_type}</span>
+                            <span class="name">${ride.name}</span>
+                        </div>
+                        <div class="ride-route">
+                            <strong>${ride.origin}</strong> → <strong>${ride.destination}</strong>
+                        </div>
+                        <div class="ride-schedule">
+                            📅 ${ride.days_of_week.join(', ')}
+                            ${ride.departure_time ? `⏰ ${ride.departure_time}` : ''}
+                        </div>
+                        ${ride.notes ? `<div class="ride-notes">${ride.notes}</div>` : ''}
+                        <div class="ride-contact">
+                            Contact: <strong>${ride.contact_method}</strong> - ${ride.contact_info}
+                        </div>
+                        <div class="ride-meta">
+                            Posted ${new Date(ride.created_at).toLocaleDateString()}
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading rides:', error);
+                document.getElementById('rides-container').innerHTML = 
+                    '<p class="error">Failed to load rides. Please refresh the page.</p>';
+            }
+        }
+
+        // Load rides when page loads
+        loadRides();
+    </script>
+</body>
+</html>
