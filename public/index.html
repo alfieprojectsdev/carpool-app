@@ -13,16 +13,118 @@
     </header>
 
     <main>
+        <!-- Post Ride Form Section -->
+        <section id="post-ride-section">
+            <h2>Post a Ride</h2>
+            <form id="post-ride-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Your Name *</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contact_method">Contact Method *</label>
+                        <select id="contact_method" name="contact_method" required>
+                            <option value="">Choose...</option>
+                            <option value="messenger">Messenger</option>
+                            <option value="viber">Viber</option>
+                            <option value="phone">Phone</option>
+                            <option value="telegram">Telegram</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="contact_info">Contact Info *</label>
+                    <input type="text" id="contact_info" name="contact_info" 
+                           placeholder="e.g., facebook.com/yourname or 0917-123-4567" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="post_type">I want to *</label>
+                    <select id="post_type" name="post_type" required>
+                        <option value="">Choose...</option>
+                        <option value="offer">Offer a ride (I'm driving)</option>
+                        <option value="request">Request a ride (I need a ride)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="origin">From *</label>
+                        <select id="origin" name="origin" required>
+                            <option value="">Choose origin...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="destination">To *</label>
+                        <select id="destination" name="destination" required>
+                            <option value="">Choose destination...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Days of Week *</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" name="days" value="monday"> Monday</label>
+                        <label><input type="checkbox" name="days" value="tuesday"> Tuesday</label>
+                        <label><input type="checkbox" name="days" value="wednesday"> Wednesday</label>
+                        <label><input type="checkbox" name="days" value="thursday"> Thursday</label>
+                        <label><input type="checkbox" name="days" value="friday"> Friday</label>
+                        <label><input type="checkbox" name="days" value="saturday"> Saturday</label>
+                        <label><input type="checkbox" name="days" value="sunday"> Sunday</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="departure_time">Departure Time (optional)</label>
+                    <input type="time" id="departure_time" name="departure_time">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Additional Notes (optional)</label>
+                    <textarea id="notes" name="notes" rows="3" 
+                              placeholder="Any other details..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit">Post Ride</button>
+                <div id="form-message"></div>
+            </form>
+        </section>
+
+        <!-- Existing Rides List -->
         <section id="rides-list">
             <h2>Available Rides</h2>
             <div id="rides-container">
-                <!-- Rides will be loaded here via JavaScript -->
                 <p class="loading">Loading rides...</p>
             </div>
         </section>
     </main>
 
     <script>
+        // Load locations into dropdowns
+        async function loadLocations() {
+            try {
+                const response = await fetch('/api/locations');
+                const locations = await response.json();
+                
+                const originSelect = document.getElementById('origin');
+                const destSelect = document.getElementById('destination');
+                
+                locations.forEach(loc => {
+                    const option1 = new Option(loc.location_name, loc.location_id);
+                    const option2 = new Option(loc.location_name, loc.location_id);
+                    originSelect.add(option1);
+                    destSelect.add(option2);
+                });
+            } catch (error) {
+                console.error('Error loading locations:', error);
+            }
+        }
+
         // Fetch and display rides
         async function loadRides() {
             try {
@@ -66,7 +168,87 @@
             }
         }
 
-        // Load rides when page loads
+        // Handle form submission
+        document.getElementById('post-ride-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formMessage = document.getElementById('form-message');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            // Get form data
+            const formData = new FormData(e.target);
+            const days = Array.from(document.querySelectorAll('input[name="days"]:checked'))
+                             .map(cb => cb.value);
+            
+            if (days.length === 0) {
+                formMessage.textContent = 'Please select at least one day';
+                formMessage.className = 'form-message error';
+                return;
+            }
+            
+            // Create user first
+            const userData = {
+                name: formData.get('name'),
+                contact_method: formData.get('contact_method'),
+                contact_info: formData.get('contact_info')
+            };
+            
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Posting...';
+                
+                // Step 1: Create user
+                const userResponse = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                
+                if (!userResponse.ok) throw new Error('Failed to create user');
+                const user = await userResponse.json();
+                
+                // Step 2: Create ride post
+                const rideData = {
+                    user_id: user.user_id,
+                    post_type: formData.get('post_type'),
+                    origin_id: parseInt(formData.get('origin')),
+                    destination_id: parseInt(formData.get('destination')),
+                    days_of_week: days,
+                    departure_time: formData.get('departure_time') || null,
+                    notes: formData.get('notes') || null
+                };
+                
+                const rideResponse = await fetch('/api/rides', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(rideData)
+                });
+                
+                if (!rideResponse.ok) throw new Error('Failed to create ride');
+                
+                // Success!
+                formMessage.textContent = '✓ Ride posted successfully!';
+                formMessage.className = 'form-message success';
+                e.target.reset();
+                
+                // Reload rides list
+                loadRides();
+                
+                // Scroll to rides list
+                document.getElementById('rides-list').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error('Error posting ride:', error);
+                formMessage.textContent = '✗ Failed to post ride. Please try again.';
+                formMessage.className = 'form-message error';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Post Ride';
+            }
+        });
+
+        // Load everything on page load
+        loadLocations();
         loadRides();
     </script>
 </body>
