@@ -8,7 +8,17 @@ const pool = require('../db/connection');
 // GET /api/rides - List all active rides
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM active_rides ORDER BY created_at DESC');
+    const result = await pool.query(`
+      SELECT ar.*,
+             COALESCE(interest_counts.count, 0) AS interest_count
+      FROM active_rides ar
+      LEFT JOIN (
+        SELECT ride_id, COUNT(*) as count
+        FROM ride_interests
+        GROUP BY ride_id
+      ) interest_counts ON ar.post_id = interest_counts.ride_id
+      ORDER BY ar.created_at DESC
+    `);
     res.json(result.rows);
   } catch (err) {
     console.error('Error fetching rides:', err);
@@ -123,22 +133,39 @@ router.post('/:id/interests', async (req, res) => {
     const { id } = req.params;
     const { interested_name, contact_method, contact_info } = req.body;
 
-    // Check if already interested (by name - simple POC check)
-    const existing = await pool.query(
-      'SELECT * FROM ride_interests WHERE ride_id = $1 AND interested_name ILIKE $2',
-      [id, interested_name]
-    );
-
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ error: 'You already showed interest in this ride' });
+    // Validation
+    if (!interested_name || interested_name.trim().length === 0) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    if (interested_name.length > 100) {
+      return res.status(400).json({ error: 'Name too long (max 100 characters)' });
+    }
+    if (!['messenger', 'viber', 'phone', 'telegram'].includes(contact_method)) {
+      return res.status(400).json({ error: 'Invalid contact method' });
+    }
+    if (!contact_info || contact_info.trim().length === 0) {
+      return res.status(400).json({ error: 'Contact info is required' });
+    }
+    if (contact_info.length > 100) {
+      return res.status(400).json({ error: 'Contact info too long (max 100 characters)' });
     }
 
-    const result = await pool.query(
-      'INSERT INTO ride_interests (ride_id, interested_name, contact_method, contact_info) VALUES ($1, $2, $3, $4) RETURNING *',
-      [id, interested_name, contact_method, contact_info]
-    );
+    const trimmedName = interested_name.trim();
+    const trimmedInfo = contact_info.trim();
 
-    res.status(201).json(result.rows[0]);
+    // Try to insert - let unique constraint handle duplicates (prevents race conditions)
+    try {
+      const result = await pool.query(
+        'INSERT INTO ride_interests (ride_id, interested_name, contact_method, contact_info) VALUES ($1, $2, $3, $4) RETURNING *',
+        [id, trimmedName, contact_method, trimmedInfo]
+      );
+      res.status(201).json(result.rows[0]);
+    } catch (insertErr) {
+      if (insertErr.code === '23505') {  // Unique violation
+        return res.status(400).json({ error: 'You already showed interest in this ride' });
+      }
+      throw insertErr;  // Re-throw other errors
+    }
   } catch (err) {
     console.error('Error adding interest:', err);
     res.status(500).json({ error: 'Failed to add interest' });

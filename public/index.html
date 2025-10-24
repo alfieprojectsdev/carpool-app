@@ -105,6 +105,17 @@
     </main>
 
     <script>
+        // XSS Protection - Escape user input before displaying
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Load locations into dropdowns
         async function loadLocations() {
             try {
@@ -142,7 +153,7 @@
                     <div class="ride-card">
                         <div class="ride-header">
                             <span class="badge ${ride.post_type}">${ride.post_type}</span>
-                            <span class="name">${ride.name}</span>
+                            <span class="name">${escapeHtml(ride.name)}</span>
                         </div>
                         <div class="ride-route">
                             <strong>${ride.origin}</strong> → <strong>${ride.destination}</strong>
@@ -151,9 +162,9 @@
                             📅 ${ride.days_of_week.join(', ')}
                             ${ride.departure_time ? `⏰ ${ride.departure_time}` : ''}
                         </div>
-                        ${ride.notes ? `<div class="ride-notes">${ride.notes}</div>` : ''}
+                        ${ride.notes ? `<div class="ride-notes">${escapeHtml(ride.notes)}</div>` : ''}
                         <div class="ride-contact">
-                            Contact: <strong>${ride.contact_method}</strong> - ${ride.contact_info}
+                            Contact: <strong>${ride.contact_method}</strong> - ${escapeHtml(ride.contact_info)}
                         </div>
                         <div class="ride-meta">
                             Posted ${new Date(ride.created_at).toLocaleDateString()}
@@ -163,14 +174,11 @@
                                 👋 I'm Interested
                             </button>
                             <button class="btn-view-interests" onclick="viewInterests(${ride.post_id})">
-                                👥 View Interested (<span id="count-${ride.post_id}">0</span>)
+                                👥 View Interested (<span id="count-${ride.post_id}">${ride.interest_count || 0}</span>)
                             </button>
                         </div>
                     </div>
                 `).join('');
-
-                // Load interest counts for all rides
-                rides.forEach(ride => loadInterestCount(ride.post_id));
                 
             } catch (error) {
                 console.error('Error loading rides:', error);
@@ -265,6 +273,9 @@
             modal.innerHTML = `
                 <div class="modal-content">
                     <h3>Show Interest in This Ride</h3>
+                    <div class="privacy-warning" style="background: #fff3cd; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; border-left: 4px solid #ffc107;">
+                        ⚠️ <strong>Privacy Notice:</strong> Your contact information will be visible to anyone viewing this ride.
+                    </div>
                     <form id="interest-form">
                         <div class="form-group">
                             <label>Your Name *</label>
@@ -285,40 +296,51 @@
                                    placeholder="e.g., facebook.com/yourname or 0917-123-4567" required>
                         </div>
                         <button type="submit" class="btn-submit">Submit Interest</button>
-                        <button type="button" class="btn-cancel" onclick="this.closest('.modal').remove()">Cancel</button>
+                        <button type="button" class="btn-cancel">Cancel</button>
                     </form>
                 </div>
             `;
 
             document.body.appendChild(modal);
 
-            document.getElementById('interest-form').addEventListener('submit', async (e) => {
-                e.preventDefault();
+            // Use event delegation on modal to prevent memory leaks
+            modal.addEventListener('click', async (e) => {
+                if (e.target.closest('.btn-cancel')) {
+                    modal.remove();
+                } else if (e.target.closest('.btn-submit')) {
+                    e.preventDefault();
 
-                const data = {
-                    interested_name: document.getElementById('interest-name').value,
-                    contact_method: document.getElementById('interest-contact-method').value,
-                    contact_info: document.getElementById('interest-contact-info').value
-                };
-
-                try {
-                    const response = await fetch(`/api/rides/${rideId}/interests`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    });
-
-                    if (response.ok) {
-                        alert('✓ Interest registered!');
-                        modal.remove();
-                        loadInterestCount(rideId);
-                    } else {
-                        const error = await response.json();
-                        alert(error.error || 'Failed to register interest');
+                    const form = modal.querySelector('#interest-form');
+                    if (!form.checkValidity()) {
+                        form.reportValidity();
+                        return;
                     }
-                } catch (err) {
-                    console.error('Error:', err);
-                    alert('Failed to register interest');
+
+                    const data = {
+                        interested_name: document.getElementById('interest-name').value,
+                        contact_method: document.getElementById('interest-contact-method').value,
+                        contact_info: document.getElementById('interest-contact-info').value
+                    };
+
+                    try {
+                        const response = await fetch(`/api/rides/${rideId}/interests`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
+
+                        if (response.ok) {
+                            alert('✓ Interest registered!');
+                            modal.remove();
+                            loadInterestCount(rideId);
+                        } else {
+                            const error = await response.json();
+                            alert(error.error || 'Failed to register interest');
+                        }
+                    } catch (err) {
+                        console.error('Error:', err);
+                        alert('Failed to register interest');
+                    }
                 }
             });
         }
@@ -354,17 +376,24 @@
                         <div class="interests-list">
                             ${interests.map(i => `
                                 <div class="interest-item">
-                                    <strong>${i.interested_name}</strong><br>
-                                    Contact: ${i.contact_method} - ${i.contact_info}<br>
+                                    <strong>${escapeHtml(i.interested_name)}</strong><br>
+                                    Contact: ${i.contact_method} - ${escapeHtml(i.contact_info)}<br>
                                     <small>Shown interest ${new Date(i.created_at).toLocaleDateString()}</small>
                                 </div>
                             `).join('')}
                         </div>
-                        <button onclick="this.closest('.modal').remove()" class="btn-cancel">Close</button>
+                        <button class="btn-cancel">Close</button>
                     </div>
                 `;
 
                 document.body.appendChild(modal);
+
+                // Use event delegation on modal to prevent memory leaks
+                modal.addEventListener('click', (e) => {
+                    if (e.target.closest('.btn-cancel')) {
+                        modal.remove();
+                    }
+                });
             } catch (err) {
                 console.error('Error viewing interests:', err);
                 alert('Failed to load interested people');
