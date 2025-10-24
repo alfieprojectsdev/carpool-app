@@ -49,20 +49,6 @@
                         <option value="request">Request a ride (I need a ride)</option>
                     </select>
                 </div>
-                <!-- Only show for "Offer" type -->
-                <div id="vehicle-fields" style="display:none;">
-                    <div class="form-group">
-                        <label for="vehicle_model">Vehicle Model (optional)</label>
-                        <input type="text" id="vehicle_model" name="vehicle_model"
-                            placeholder="e.g., Toyota Vios, Honda City">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="available_seats">Available Seats (optional)</label>
-                        <input type="number" id="available_seats" name="available_seats" min="1" max="7" placeholder="e.g., 3">
-                    </div>
-                </div>
-
 
                 <div class="form-row">
                     <div class="form-group">
@@ -119,6 +105,17 @@
     </main>
 
     <script>
+        // XSS Protection - Escape user input before displaying
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Show vehicle fields only for offers
         document.getElementById('post_type').addEventListener('change', (e) => {
             const isOffer = e.target.value === 'offer';
@@ -165,26 +162,34 @@
                     <div class="ride-card">
                         <div class="ride-header">
                             <span class="badge ${ride.post_type}">${ride.post_type}</span>
-                            <span class="name">${ride.name}</span>
+                            <span class="name">${escapeHtml(ride.name)}</span>
                         </div>
                         <div class="ride-route">
                             <strong>${ride.origin}</strong> → <strong>${ride.destination}</strong>
                         </div>
-                        ${ride.post_type === 'offer' && ride.vehicle_model ? 
+                        ${ride.post_type === 'offer' && ride.vehicle_model ?
                             `<div class="vehicle-info">
                             🚗 <strong>${ride.vehicle_model}</strong>
                             ${ride.available_seats ? ` (${ride.available_seats} seats available)` : ''}
-                            </div>` : ''}                        
+                            </div>` : ''}
                         <div class="ride-schedule">
                             📅 ${ride.days_of_week.join(', ')}
                             ${ride.departure_time ? `⏰ ${ride.departure_time}` : ''}
                         </div>
-                        ${ride.notes ? `<div class="ride-notes">${ride.notes}</div>` : ''}
+                        ${ride.notes ? `<div class="ride-notes">${escapeHtml(ride.notes)}</div>` : ''}
                         <div class="ride-contact">
-                            Contact: <strong>${ride.contact_method}</strong> - ${ride.contact_info}
+                            Contact: <strong>${ride.contact_method}</strong> - ${escapeHtml(ride.contact_info)}
                         </div>
                         <div class="ride-meta">
                             Posted ${new Date(ride.created_at).toLocaleDateString()}
+                        </div>
+                        <div class="ride-actions">
+                            <button class="btn-interest" onclick="showInterestModal(${ride.post_id})">
+                                👋 I'm Interested
+                            </button>
+                            <button class="btn-view-interests" onclick="viewInterests(${ride.post_id})">
+                                👥 View Interested (<span id="count-${ride.post_id}">${ride.interest_count || 0}</span>)
+                            </button>
                         </div>
                     </div>
                 `).join('');
@@ -245,7 +250,7 @@
                     departure_time: formData.get('departure_time') || null,
                     notes: formData.get('notes') || null,
                     vehicle_model: formData.get('vehicle_model') || null,
-                    available_seats: formData.get('available_seats') ? parseInt(formData.get('available_seats')) : null  // NEW
+                    available_seats: formData.get('available_seats') ? parseInt(formData.get('available_seats')) : null
                 };
                 
                 const rideResponse = await fetch('/api/rides', {
@@ -276,6 +281,140 @@
                 submitBtn.textContent = 'Post Ride';
             }
         });
+
+        // Show interest modal
+        function showInterestModal(rideId) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>Show Interest in This Ride</h3>
+                    <div class="privacy-warning" style="background: #fff3cd; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; border-left: 4px solid #ffc107;">
+                        ⚠️ <strong>Privacy Notice:</strong> Your contact information will be visible to anyone viewing this ride.
+                    </div>
+                    <form id="interest-form">
+                        <div class="form-group">
+                            <label>Your Name *</label>
+                            <input type="text" id="interest-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>How to contact you *</label>
+                            <select id="interest-contact-method" required>
+                                <option value="messenger">Messenger</option>
+                                <option value="viber">Viber</option>
+                                <option value="phone">Phone</option>
+                                <option value="telegram">Telegram</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Info *</label>
+                            <input type="text" id="interest-contact-info"
+                                   placeholder="e.g., facebook.com/yourname or 0917-123-4567" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Submit Interest</button>
+                        <button type="button" class="btn-cancel">Cancel</button>
+                    </form>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Use event delegation on modal to prevent memory leaks
+            modal.addEventListener('click', async (e) => {
+                if (e.target.closest('.btn-cancel')) {
+                    modal.remove();
+                } else if (e.target.closest('.btn-submit')) {
+                    e.preventDefault();
+
+                    const form = modal.querySelector('#interest-form');
+                    if (!form.checkValidity()) {
+                        form.reportValidity();
+                        return;
+                    }
+
+                    const data = {
+                        interested_name: document.getElementById('interest-name').value,
+                        contact_method: document.getElementById('interest-contact-method').value,
+                        contact_info: document.getElementById('interest-contact-info').value
+                    };
+
+                    try {
+                        const response = await fetch(`/api/rides/${rideId}/interests`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
+
+                        if (response.ok) {
+                            alert('✓ Interest registered!');
+                            modal.remove();
+                            loadInterestCount(rideId);
+                        } else {
+                            const error = await response.json();
+                            alert(error.error || 'Failed to register interest');
+                        }
+                    } catch (err) {
+                        console.error('Error:', err);
+                        alert('Failed to register interest');
+                    }
+                }
+            });
+        }
+
+        // Load interest count
+        async function loadInterestCount(rideId) {
+            try {
+                const response = await fetch(`/api/rides/${rideId}/interests`);
+                const interests = await response.json();
+                const countEl = document.getElementById(`count-${rideId}`);
+                if (countEl) countEl.textContent = interests.length;
+            } catch (err) {
+                console.error('Error loading interest count:', err);
+            }
+        }
+
+        // View list of interested people
+        async function viewInterests(rideId) {
+            try {
+                const response = await fetch(`/api/rides/${rideId}/interests`);
+                const interests = await response.json();
+
+                if (interests.length === 0) {
+                    alert('No one has shown interest yet.');
+                    return;
+                }
+
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <h3>People Interested in This Ride</h3>
+                        <div class="interests-list">
+                            ${interests.map(i => `
+                                <div class="interest-item">
+                                    <strong>${escapeHtml(i.interested_name)}</strong><br>
+                                    Contact: ${i.contact_method} - ${escapeHtml(i.contact_info)}<br>
+                                    <small>Shown interest ${new Date(i.created_at).toLocaleDateString()}</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="btn-cancel">Close</button>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                // Use event delegation on modal to prevent memory leaks
+                modal.addEventListener('click', (e) => {
+                    if (e.target.closest('.btn-cancel')) {
+                        modal.remove();
+                    }
+                });
+            } catch (err) {
+                console.error('Error viewing interests:', err);
+                alert('Failed to load interested people');
+            }
+        }
 
         // Load everything on page load
         loadLocations();
