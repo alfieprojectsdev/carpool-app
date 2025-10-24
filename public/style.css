@@ -68,6 +68,21 @@ main {
     color: #555;
 }
 
+/* Fieldset/Legend for checkbox groups */
+fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+legend {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #555;
+    font-size: 0.9rem;
+}
+
 .form-group input,
 .form-group select,
 .form-group textarea {

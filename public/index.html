@@ -67,16 +67,18 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Days of Week *</label>
-                    <div class="checkbox-group">
-                        <label><input type="checkbox" name="days" value="monday"> Monday</label>
-                        <label><input type="checkbox" name="days" value="tuesday"> Tuesday</label>
-                        <label><input type="checkbox" name="days" value="wednesday"> Wednesday</label>
-                        <label><input type="checkbox" name="days" value="thursday"> Thursday</label>
-                        <label><input type="checkbox" name="days" value="friday"> Friday</label>
-                        <label><input type="checkbox" name="days" value="saturday"> Saturday</label>
-                        <label><input type="checkbox" name="days" value="sunday"> Sunday</label>
-                    </div>
+                    <fieldset>
+                        <legend>Days of Week *</legend>
+                        <div class="checkbox-group">
+                            <label><input type="checkbox" name="days" value="monday"> Monday</label>
+                            <label><input type="checkbox" name="days" value="tuesday"> Tuesday</label>
+                            <label><input type="checkbox" name="days" value="wednesday"> Wednesday</label>
+                            <label><input type="checkbox" name="days" value="thursday"> Thursday</label>
+                            <label><input type="checkbox" name="days" value="friday"> Friday</label>
+                            <label><input type="checkbox" name="days" value="saturday"> Saturday</label>
+                            <label><input type="checkbox" name="days" value="sunday"> Sunday</label>
+                        </div>
+                    </fieldset>
                 </div>
 
                 <div class="form-group">
@@ -86,8 +88,23 @@
 
                 <div class="form-group">
                     <label for="notes">Additional Notes (optional)</label>
-                    <textarea id="notes" name="notes" rows="3" 
+                    <textarea id="notes" name="notes" rows="3"
                               placeholder="Any other details..."></textarea>
+                </div>
+
+                <!-- Vehicle fields (shown only for offers) -->
+                <div id="vehicle-fields" style="display:none;">
+                    <div class="form-group">
+                        <label for="vehicle_model">Vehicle Model (optional)</label>
+                        <input type="text" id="vehicle_model" name="vehicle_model"
+                               maxlength="100" placeholder="e.g., Toyota Vios, Honda City">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="available_seats">Available Seats (optional)</label>
+                        <input type="number" id="available_seats" name="available_seats"
+                               min="1" max="10" placeholder="How many passengers?">
+                    </div>
                 </div>
 
                 <button type="submit" class="btn-submit">Post Ride</button>
@@ -282,6 +299,55 @@
             }
         });
 
+        // Make modal keyboard accessible
+        function makeModalAccessible(modal) {
+            // Get all focusable elements
+            const focusableElements = modal.querySelectorAll(
+                'button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+
+            if (focusableElements.length === 0) return;
+
+            const firstFocusable = focusableElements[0];
+            const lastFocusable = focusableElements[focusableElements.length - 1];
+
+            // Focus first element
+            firstFocusable.focus();
+
+            // Handle keyboard events
+            modal.addEventListener('keydown', (e) => {
+                // Close on Escape
+                if (e.key === 'Escape') {
+                    modal.remove();
+                    return;
+                }
+
+                // Trap focus with Tab
+                if (e.key === 'Tab') {
+                    if (e.shiftKey) {
+                        // Shift+Tab: if on first element, go to last
+                        if (document.activeElement === firstFocusable) {
+                            e.preventDefault();
+                            lastFocusable.focus();
+                        }
+                    } else {
+                        // Tab: if on last element, go to first
+                        if (document.activeElement === lastFocusable) {
+                            e.preventDefault();
+                            firstFocusable.focus();
+                        }
+                    }
+                }
+            });
+
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
         // Show interest modal
         function showInterestModal(rideId) {
             const modal = document.createElement('div');
@@ -318,6 +384,7 @@
             `;
 
             document.body.appendChild(modal);
+            makeModalAccessible(modal);
 
             // Use event delegation on modal to prevent memory leaks
             modal.addEventListener('click', async (e) => {
@@ -403,6 +470,7 @@
                 `;
 
                 document.body.appendChild(modal);
+                makeModalAccessible(modal);
 
                 // Use event delegation on modal to prevent memory leaks
                 modal.addEventListener('click', (e) => {
