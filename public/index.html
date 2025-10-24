@@ -158,8 +158,19 @@
                         <div class="ride-meta">
                             Posted ${new Date(ride.created_at).toLocaleDateString()}
                         </div>
+                        <div class="ride-actions">
+                            <button class="btn-interest" onclick="showInterestModal(${ride.post_id})">
+                                👋 I'm Interested
+                            </button>
+                            <button class="btn-view-interests" onclick="viewInterests(${ride.post_id})">
+                                👥 View Interested (<span id="count-${ride.post_id}">0</span>)
+                            </button>
+                        </div>
                     </div>
                 `).join('');
+
+                // Load interest counts for all rides
+                rides.forEach(ride => loadInterestCount(ride.post_id));
                 
             } catch (error) {
                 console.error('Error loading rides:', error);
@@ -246,6 +257,119 @@
                 submitBtn.textContent = 'Post Ride';
             }
         });
+
+        // Show interest modal
+        function showInterestModal(rideId) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3>Show Interest in This Ride</h3>
+                    <form id="interest-form">
+                        <div class="form-group">
+                            <label>Your Name *</label>
+                            <input type="text" id="interest-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>How to contact you *</label>
+                            <select id="interest-contact-method" required>
+                                <option value="messenger">Messenger</option>
+                                <option value="viber">Viber</option>
+                                <option value="phone">Phone</option>
+                                <option value="telegram">Telegram</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Info *</label>
+                            <input type="text" id="interest-contact-info"
+                                   placeholder="e.g., facebook.com/yourname or 0917-123-4567" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Submit Interest</button>
+                        <button type="button" class="btn-cancel" onclick="this.closest('.modal').remove()">Cancel</button>
+                    </form>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            document.getElementById('interest-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const data = {
+                    interested_name: document.getElementById('interest-name').value,
+                    contact_method: document.getElementById('interest-contact-method').value,
+                    contact_info: document.getElementById('interest-contact-info').value
+                };
+
+                try {
+                    const response = await fetch(`/api/rides/${rideId}/interests`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        alert('✓ Interest registered!');
+                        modal.remove();
+                        loadInterestCount(rideId);
+                    } else {
+                        const error = await response.json();
+                        alert(error.error || 'Failed to register interest');
+                    }
+                } catch (err) {
+                    console.error('Error:', err);
+                    alert('Failed to register interest');
+                }
+            });
+        }
+
+        // Load interest count
+        async function loadInterestCount(rideId) {
+            try {
+                const response = await fetch(`/api/rides/${rideId}/interests`);
+                const interests = await response.json();
+                const countEl = document.getElementById(`count-${rideId}`);
+                if (countEl) countEl.textContent = interests.length;
+            } catch (err) {
+                console.error('Error loading interest count:', err);
+            }
+        }
+
+        // View list of interested people
+        async function viewInterests(rideId) {
+            try {
+                const response = await fetch(`/api/rides/${rideId}/interests`);
+                const interests = await response.json();
+
+                if (interests.length === 0) {
+                    alert('No one has shown interest yet.');
+                    return;
+                }
+
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <h3>People Interested in This Ride</h3>
+                        <div class="interests-list">
+                            ${interests.map(i => `
+                                <div class="interest-item">
+                                    <strong>${i.interested_name}</strong><br>
+                                    Contact: ${i.contact_method} - ${i.contact_info}<br>
+                                    <small>Shown interest ${new Date(i.created_at).toLocaleDateString()}</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button onclick="this.closest('.modal').remove()" class="btn-cancel">Close</button>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+            } catch (err) {
+                console.error('Error viewing interests:', err);
+                alert('Failed to load interested people');
+            }
+        }
 
         // Load everything on page load
         loadLocations();
