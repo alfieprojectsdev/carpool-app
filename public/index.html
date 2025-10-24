@@ -233,7 +233,29 @@
             if (days.length === 0) {
                 formMessage.textContent = 'Please select at least one day';
                 formMessage.className = 'form-message error';
+                formMessage.setAttribute('role', 'alert');
+
+                // Add inline error near checkbox group
+                const checkboxGroup = document.querySelector('.checkbox-group');
+                let inlineError = checkboxGroup.parentElement.querySelector('.inline-error');
+                if (!inlineError) {
+                    inlineError = document.createElement('span');
+                    inlineError.className = 'inline-error';
+                    inlineError.style.color = '#d73a49';
+                    inlineError.style.fontSize = '0.875rem';
+                    inlineError.style.marginTop = '0.25rem';
+                    inlineError.style.display = 'block';
+                    checkboxGroup.parentElement.appendChild(inlineError);
+                }
+                inlineError.textContent = '⚠️ Please select at least one day';
+                inlineError.setAttribute('role', 'alert');
                 return;
+            }
+
+            // Clear any previous inline errors
+            const existingInlineError = document.querySelector('.inline-error');
+            if (existingInlineError) {
+                existingInlineError.remove();
             }
             
             // Create user first
@@ -353,8 +375,8 @@
             const modal = document.createElement('div');
             modal.className = 'modal';
             modal.innerHTML = `
-                <div class="modal-content">
-                    <h3>Show Interest in This Ride</h3>
+                <div class="modal-content" role="dialog" aria-labelledby="interest-modal-title">
+                    <h2 id="interest-modal-title">Show Interest in This Ride</h2>
                     <div class="privacy-warning" style="background: #fff3cd; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; border-left: 4px solid #ffc107;">
                         ⚠️ <strong>Privacy Notice:</strong> Your contact information will be visible to anyone viewing this ride.
                     </div>
@@ -454,8 +476,8 @@
                 const modal = document.createElement('div');
                 modal.className = 'modal';
                 modal.innerHTML = `
-                    <div class="modal-content">
-                        <h3>People Interested in This Ride</h3>
+                    <div class="modal-content" role="dialog" aria-labelledby="view-interests-modal-title">
+                        <h2 id="view-interests-modal-title">People Interested in This Ride</h2>
                         <div class="interests-list">
                             ${interests.map(i => `
                                 <div class="interest-item">
