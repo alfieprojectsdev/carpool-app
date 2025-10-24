@@ -33,7 +33,6 @@ CREATE TABLE ride_posts (
     post_type VARCHAR(10) CHECK (post_type IN ('offer', 'request')) NOT NULL,
     origin_id INTEGER REFERENCES locations(location_id),
     destination_id INTEGER REFERENCES locations(location_id),
-    
     -- Schedule fields
     days_of_week VARCHAR(50)[], -- Array: {'monday', 'tuesday', 'wednesday'}
     departure_time TIME,
@@ -41,6 +40,8 @@ CREATE TABLE ride_posts (
     
     -- Additional info
     notes TEXT,
+    vehicle_model VARCHAR(100),
+    available_seats INTEGER,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -52,6 +53,8 @@ CREATE INDEX idx_ride_destination ON ride_posts(destination_id);
 CREATE INDEX idx_ride_active ON ride_posts(is_active);
 
 -- View: Active rides with readable location names
+DROP VIEW IF EXISTS active_rides;
+
 CREATE VIEW active_rides AS
 SELECT 
     rp.post_id,
@@ -64,6 +67,8 @@ SELECT
     rp.days_of_week,
     TO_CHAR(rp.departure_time, 'HH12:MI AM') AS departure_time,
     rp.notes,
+    rp.vehicle_model,
+    rp.available_seats,
     rp.created_at
 FROM ride_posts rp
 JOIN users u ON rp.user_id = u.user_id

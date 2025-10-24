@@ -39,14 +39,24 @@ router.get('/:id', async (req, res) => {
 // POST /api/rides - Create new ride post
 router.post('/', async (req, res) => {
   try {
-    const { user_id, post_type, origin_id, destination_id, days_of_week, departure_time, notes } = req.body;
+    const { 
+      user_id, 
+      post_type, 
+      origin_id, 
+      destination_id, 
+      days_of_week, 
+      departure_time, 
+      notes,
+      vehicle_model,      // NEW
+      available_seats     // NEW
+    } = req.body;
     
     const result = await pool.query(
       `INSERT INTO ride_posts 
-       (user_id, post_type, origin_id, destination_id, days_of_week, departure_time, notes) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       (user_id, post_type, origin_id, destination_id, days_of_week, departure_time, notes, vehicle_model, available_seats) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
        RETURNING *`,
-      [user_id, post_type, origin_id, destination_id, days_of_week, departure_time, notes]
+      [user_id, post_type, origin_id, destination_id, days_of_week, departure_time, notes, vehicle_model, available_seats]
     );
     
     res.status(201).json(result.rows[0]);

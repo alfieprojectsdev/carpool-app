@@ -49,6 +49,20 @@
                         <option value="request">Request a ride (I need a ride)</option>
                     </select>
                 </div>
+                <!-- Only show for "Offer" type -->
+                <div id="vehicle-fields" style="display:none;">
+                    <div class="form-group">
+                        <label for="vehicle_model">Vehicle Model (optional)</label>
+                        <input type="text" id="vehicle_model" name="vehicle_model"
+                            placeholder="e.g., Toyota Vios, Honda City">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="available_seats">Available Seats *</label>
+                        <input type="number" id="available_seats" name="available_seats" min="1" max="7" placeholder="e.g., 3">
+                    </div>
+                </div>
+
 
                 <div class="form-row">
                     <div class="form-group">
@@ -105,6 +119,15 @@
     </main>
 
     <script>
+        // Show vehicle fields only for offers
+        document.getElementById('post_type').addEventListener('change', (e) => {
+            const isOffer = e.target.value === 'offer';
+            const vehicleFields = document.getElementById('vehicle-fields');
+            if (vehicleFields) {
+                    vehicleFields.style.display = isOffer ? 'block' : 'none';
+            }
+        });
+
         // Load locations into dropdowns
         async function loadLocations() {
             try {
@@ -147,6 +170,11 @@
                         <div class="ride-route">
                             <strong>${ride.origin}</strong> → <strong>${ride.destination}</strong>
                         </div>
+                        ${ride.post_type === 'offer' && ride.vehicle_model ? 
+                            `<div class="vehicle-info">
+                            🚗 <strong>${ride.vehicle_model}</strong>
+                            ${ride.available_seats ? ` (${ride.available_seats} seats available)` : ''}
+                            </div>` : ''}                        
                         <div class="ride-schedule">
                             📅 ${ride.days_of_week.join(', ')}
                             ${ride.departure_time ? `⏰ ${ride.departure_time}` : ''}
@@ -215,7 +243,9 @@
                     destination_id: parseInt(formData.get('destination')),
                     days_of_week: days,
                     departure_time: formData.get('departure_time') || null,
-                    notes: formData.get('notes') || null
+                    notes: formData.get('notes') || null,
+                    vehicle_model: formData.get('vehicle_model') || null,
+                    available_seats: formData.get('available_seats') ? parseInt(formData.get('available_seats')) : null  // NEW
                 };
                 
                 const rideResponse = await fetch('/api/rides', {
