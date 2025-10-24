@@ -205,6 +205,23 @@ main {
     color: #222;
 }
 
+.vehicle-info {
+  background: #e8f4f8;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  color: #0066cc;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vehicle-info strong {
+  color: #004080;
+}
+
 .ride-schedule {
     color: #666;
     margin-bottom: 0.75rem;
