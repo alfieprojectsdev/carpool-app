@@ -18,12 +18,13 @@ CREATE TABLE locations (
 
 -- Insert common locations from the chat
 INSERT INTO locations (location_name, location_type) VALUES
-    ('SMDC Phirst Park Homes', 'residential'),
+    ('Phirst Park Homes', 'residential'),
     ('Dau Terminal', 'terminal'),
     ('Cubao', 'terminal'),
     ('BGC', 'commercial'),
     ('Manila', 'commercial'),
-    ('AUF/Astro', 'commercial'),
+    ('AUF', 'commercial'),
+    ('Astro', 'commercial'),
     ('SMDC Cheerful Homes', 'residential');
 
 -- Ride posts (the core feature)
@@ -51,6 +52,19 @@ CREATE TABLE ride_posts (
 CREATE INDEX idx_ride_origin ON ride_posts(origin_id);
 CREATE INDEX idx_ride_destination ON ride_posts(destination_id);
 CREATE INDEX idx_ride_active ON ride_posts(is_active);
+
+-- Interest system table
+CREATE TABLE ride_interests (
+    interest_id SERIAL PRIMARY KEY,
+    ride_id INTEGER REFERENCES ride_posts(post_id) ON DELETE CASCADE,
+    interested_name VARCHAR(100) NOT NULL,
+    contact_method VARCHAR(20) CHECK (contact_method IN ('messenger', 'viber', 'phone', 'telegram')),
+    contact_info VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index for quickly finding interests for a ride
+CREATE INDEX idx_ride_interests_ride ON ride_interests(ride_id);
 
 -- View: Active rides with readable location names
 DROP VIEW IF EXISTS active_rides;
