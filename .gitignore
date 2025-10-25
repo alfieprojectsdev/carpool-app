@@ -3,6 +3,7 @@ node_modules/
 
 # Environment variables (NEVER commit passwords!)
 .env
+.env.example
 
 # OS files
 .DS_Store
@@ -21,3 +22,16 @@ npm-debug.log*
 
 # Worktrees directory
 .trees/
+
+# Claude AI files
+CLAUDE.md
+.claude/
+
+# Documentation notes
+docs/
+
+# Playwright test artifacts
+playwright-report/
+playwright.config.js
+test-results/
+tests/
