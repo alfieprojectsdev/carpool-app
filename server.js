@@ -13,6 +13,13 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json()); // Parse JSON request bodies
 app.use(express.static('public')); // Serve static files from public/
 
+app.use((req, res, next) => {
+  res.locals.goatCounterScript = process.env.NODE_ENV === 'production'
+    ? '<script data-goatcounter="https://ithinkandicode.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>'
+    : '';
+  next();
+});
+
 // API Routes
 app.use('/api/rides', ridesRouter);
 
@@ -60,9 +67,3 @@ app.listen(PORT, () => {
   console.log(`✓ API available at http://localhost:${PORT}/api/rides`);
 });
 
-app.use((req, res, next) => {
-  res.locals.goatCounterScript = process.env.NODE_ENV === 'production'
-    ? '<script data-goatcounter="https://ithinkandicode.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>'
-    : '';
-  next();
-});
