@@ -59,3 +59,10 @@ app.listen(PORT, () => {
   console.log(`✓ Server running on http://localhost:${PORT}`);
   console.log(`✓ API available at http://localhost:${PORT}/api/rides`);
 });
+
+app.use((req, res, next) => {
+  res.locals.goatCounterScript = process.env.NODE_ENV === 'production'
+    ? '<script data-goatcounter="https://ithinkandicode.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>'
+    : '';
+  next();
+});

@@ -22,6 +22,7 @@ npm-debug.log*
 
 # Worktrees directory
 .trees/
+scripts/
 
 # Claude AI files
 CLAUDE.md
@@ -35,3 +36,6 @@ playwright-report/
 playwright.config.js
 test-results/
 tests/
+
+# manual DB edits
+db/
