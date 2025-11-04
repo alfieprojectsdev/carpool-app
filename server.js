@@ -1,6 +1,4 @@
 // server.js
-// Entry point: Wire everything together
-
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -9,9 +7,13 @@ const ridesRouter = require('./routes/rides');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ✅ ADD: Set EJS as view engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 // Middleware
-app.use(express.json()); // Parse JSON request bodies
-app.use(express.static('public')); // Serve static files from public/
+app.use(express.json());
+app.use(express.static('public'));
 
 app.use((req, res, next) => {
   res.locals.goatCounterScript = process.env.NODE_ENV === 'production'
@@ -23,7 +25,7 @@ app.use((req, res, next) => {
 // API Routes
 app.use('/api/rides', ridesRouter);
 
-// Locations endpoint (used by form dropdowns)
+// Locations endpoint
 app.get('/api/locations', async (req, res) => {
   const pool = require('./db/connection');
   try {
@@ -35,7 +37,7 @@ app.get('/api/locations', async (req, res) => {
   }
 });
 
-// Users endpoint (create user when posting ride)
+// Users endpoint
 app.post('/api/users', async (req, res) => {
   const pool = require('./db/connection');
   try {
@@ -51,9 +53,9 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// Serve index.html for root path
+// ✅ CHANGE: Render template instead of static file
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.render('index');
 });
 
 // 404 handler
@@ -66,4 +68,3 @@ app.listen(PORT, () => {
   console.log(`✓ Server running on http://localhost:${PORT}`);
   console.log(`✓ API available at http://localhost:${PORT}/api/rides`);
 });
-

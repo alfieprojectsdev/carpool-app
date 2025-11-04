@@ -475,7 +475,8 @@
                 const interests = await response.json();
 
                 // Track view event
-                window.analytics.interestsViewed(rideId, interests.length);
+                window.analytics
+                .interestsViewed(rideId, interests.length);
 
                 if (interests.length === 0) {
                     alert('No one has shown interest yet.');
