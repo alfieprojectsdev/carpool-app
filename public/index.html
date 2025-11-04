@@ -122,6 +122,7 @@
         </section>
     </main>
 
+    <script src="js/analytics.js"></script>
     <script>
         // XSS Protection - Escape user input before displaying
         function escapeHtml(unsafe) {
@@ -195,7 +196,8 @@
                             ${ride.departure_time ? `⏰ ${ride.departure_time}` : ''}
                         </div>
                         ${ride.notes ? `<div class="ride-notes">${escapeHtml(ride.notes)}</div>` : ''}
-                        <div class="ride-contact">
+                        <div class="ride-contact"
+                             onclick="window.analytics.contactViewed('${ride.contact_method}')">
                             Contact: <strong>${ride.contact_method}</strong> - ${escapeHtml(ride.contact_info)}
                         </div>
                         <div class="ride-meta">
@@ -301,6 +303,8 @@
                 
                 if (!rideResponse.ok) throw new Error('Failed to create ride');
                 
+                // Track successful ride post
+                window.analytics.ridePosted(formData.get('post_type'));
                 // Success!
                 formMessage.textContent = '✓ Ride posted successfully!';
                 formMessage.className = 'form-message success';
@@ -436,6 +440,7 @@
                         });
 
                         if (response.ok) {
+                            window.analytics.interestExpressed(rideId);
                             alert('✓ Interest registered!');
                             modal.remove();
                             loadInterestCount(rideId);
@@ -468,6 +473,9 @@
             try {
                 const response = await fetch(`/api/rides/${rideId}/interests`);
                 const interests = await response.json();
+
+                // Track view event
+                window.analytics.interestsViewed(rideId, interests.length);
 
                 if (interests.length === 0) {
                     alert('No one has shown interest yet.');
