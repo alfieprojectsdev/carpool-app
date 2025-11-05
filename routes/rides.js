@@ -200,51 +200,6 @@ router.post('/:id/interests', async (req, res) => {
 });
 
 
-// POST /api/locations - Add new location
-router.post('/locations', async (req, res) => {
-  const pool = require('../db/connection');
-  try {
-    const { location_name, location_type } = req.body;
 
-    // Validation
-    if (!location_name || location_name.trim().length === 0) {
-      return res.status(400).json({ error: 'Location name is required' });
-    }
-
-    if (location_name.length > 100) {
-      return res.status(400).json({ error: 'Location name too long (max 100 characters)' });
-    }
-
-    // Default to 'commercial' if not specified
-    const validTypes = ['residential', 'commercial', 'terminal'];
-    const finalType = validTypes.includes(location_type) ? location_type : 'commercial';
-
-    const trimmedName = location_name.trim();
-
-    // Check if location already exists (case-insensitive)
-    const existingCheck = await pool.query(
-      'SELECT location_id FROM locations WHERE LOWER(location_name) = LOWER($1)',
-      [trimmedName]
-    );
-
-    if (existingCheck.rows.length > 0) {
-      return res.status(400).json({ 
-        error: 'This location already exists',
-        location_id: existingCheck.rows[0].location_id
-      });
-    }
-
-    // Insert new location
-    const result = await pool.query(
-      'INSERT INTO locations (location_name, location_type) VALUES ($1, $2) RETURNING *',
-      [trimmedName, finalType]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Error creating location:', err);
-    res.status(500).json({ error: 'Failed to create location' });
-  }
-});
 
 module.exports = router;
