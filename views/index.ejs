@@ -56,6 +56,9 @@
                         <label for="origin">From *</label>
                         <select id="origin" name="origin" required>
                             <option value="">Choose origin...</option>
+                            <option value="__add_new__" style="border-top: 1px solid #ccc; margin-top: 0.5rem;">
+                                ➕ Add new location...
+                            </option>
                         </select>
                     </div>
                     
@@ -63,6 +66,9 @@
                         <label for="destination">To *</label>
                         <select id="destination" name="destination" required>
                             <option value="">Choose destination...</option>
+                            <option value="__add_new__" style="border-top: 1px solid #ccc; margin-top: 0.5rem;">
+                                ➕ Add new location...
+                            </option>
                         </select>
                     </div>
                 </div>
@@ -153,15 +159,138 @@
                 const originSelect = document.getElementById('origin');
                 const destSelect = document.getElementById('destination');
                 
+                // Clear existing options except the first two (placeholder + "Add new")
+                originSelect.innerHTML = `
+                    <option value="">Choose origin...</option>
+                    <option value="__add_new__" style="border-top: 1px solid #ccc; margin-top: 0.5rem;">
+                        ➕ Add new location...
+                    </option>
+                `;
+                destSelect.innerHTML = `
+                    <option value="">Choose destination...</option>
+                    <option value="__add_new__" style="border-top: 1px solid #ccc; margin-top: 0.5rem;">
+                        ➕ Add new location...
+                    </option>
+                `;
+                
+                // Add locations with category icons
                 locations.forEach(loc => {
-                    const option1 = new Option(loc.location_name, loc.location_id);
-                    const option2 = new Option(loc.location_name, loc.location_id);
-                    originSelect.add(option1);
-                    destSelect.add(option2);
+                    const icon = {
+                        'residential': '🏠',
+                        'terminal': '🚏',
+                        'commercial': '🏢'
+                    }[loc.location_type] || '📍';
+                    
+                    const displayName = `${icon} ${loc.location_name}`;
+                    const option1 = new Option(displayName, loc.location_id);
+                    const option2 = new Option(displayName, loc.location_id);
+                    
+                    // Insert before the "Add new" option
+                    originSelect.add(option1, 1);
+                    destSelect.add(option2, 1);
                 });
             } catch (error) {
                 console.error('Error loading locations:', error);
             }
+        }
+
+        // Handle "Add new location" selection
+        document.getElementById('origin').addEventListener('change', function(e) {
+            if (e.target.value === '__add_new__') {
+                showAddLocationModal('origin');
+            }
+        });
+
+        document.getElementById('destination').addEventListener('change', function(e) {
+            if (e.target.value === '__add_new__') {
+                showAddLocationModal('destination');
+            }
+        });
+
+        // Show modal to add new location
+        function showAddLocationModal(selectId) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content" role="dialog" aria-labelledby="add-location-modal-title">
+                    <h3 id="add-location-modal-title">Add New Location</h3>
+                    <form id="add-location-form">
+                        <div class="form-group">
+                            <label for="new-location-name">Location Name *</label>
+                            <input type="text" id="new-location-name" required maxlength="100"
+                                placeholder="e.g., SM Clark, Angeles City Hall">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-location-type">Location Type *</label>
+                            <select id="new-location-type" required>
+                                <option value="commercial">Commercial (default)</option>
+                                <option value="residential">Residential</option>
+                                <option value="terminal">Terminal</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-submit">Add Location</button>
+                        <button type="button" class="btn-cancel">Cancel</button>
+                    </form>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            makeModalAccessible(modal);
+
+            // Store which select triggered this
+            modal.dataset.selectId = selectId;
+
+            // Handle form submission
+            modal.querySelector('#add-location-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const submitBtn = e.target.querySelector('.btn-submit');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Adding...';
+
+                const locationData = {
+                    location_name: document.getElementById('new-location-name').value.trim(),
+                    location_type: document.getElementById('new-location-type').value
+                };
+
+                try {
+                    const response = await fetch('/api/locations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(locationData)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        // Reload locations
+                        await loadLocations();
+                        
+                        // Select the newly added location
+                        const targetSelect = document.getElementById(modal.dataset.selectId);
+                        targetSelect.value = result.location_id;
+                        
+                        alert(`✓ Location "${locationData.location_name}" added successfully!`);
+                        modal.remove();
+                    } else {
+                        alert(result.error || 'Failed to add location');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Add Location';
+                    }
+                } catch (err) {
+                    console.error('Error adding location:', err);
+                    alert('Failed to add location. Please try again.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Add Location';
+                }
+            });
+
+            // Handle cancel
+            modal.querySelector('.btn-cancel').addEventListener('click', () => {
+                // Reset the select back to empty
+                document.getElementById(selectId).value = '';
+                modal.remove();
+            });
         }
 
         // Fetch and display rides

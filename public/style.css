@@ -38,7 +38,10 @@ main {
     padding: 0 1rem;
 }
 
-/* Form Section */
+/* ========================================
+   FORM SECTION
+   ======================================== */
+
 #post-ride-section {
     background: white;
     border-radius: 8px;
@@ -84,6 +87,7 @@ legend {
     font-size: 0.9rem;
 }
 
+/* Form inputs */
 .form-group input,
 .form-group select,
 .form-group textarea {
@@ -100,6 +104,12 @@ legend {
 .form-group textarea:focus {
     outline: none;
     border-color: #667eea;
+}
+
+/* 🆕 Add new location option styling */
+select option[value="__add_new__"] {
+    font-weight: 600;
+    color: #667eea;
 }
 
 .checkbox-group {
@@ -141,7 +151,7 @@ legend {
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-/* Focus indicators for keyboard navigation (HIGH #1) */
+/* Focus indicators for keyboard navigation */
 .btn-submit:focus,
 .btn-submit:focus-visible,
 .btn-interest:focus,
@@ -176,6 +186,10 @@ legend {
     background: #f8d7da;
     color: #721c24;
 }
+
+/* ========================================
+   RIDES LIST
+   ======================================== */
 
 #rides-list h2 {
     margin-bottom: 1.5rem;
@@ -239,20 +253,20 @@ legend {
 }
 
 .vehicle-info {
-  background: #e8f4f8;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-  margin-top: 0.5rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.9rem;
-  color: #0066cc;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+    background: #e8f4f8;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    color: #0066cc;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .vehicle-info strong {
-  color: #004080;
+    color: #004080;
 }
 
 .ride-schedule {
@@ -295,9 +309,10 @@ legend {
     color: #d73a49;
 }
 
-/* Interest System Styles */
+/* ========================================
+   INTEREST SYSTEM
+   ======================================== */
 
-/* Interest buttons */
 .ride-actions {
     display: flex;
     gap: 0.5rem;
@@ -335,7 +350,10 @@ legend {
     background: #e0e0e0;
 }
 
-/* Modal */
+/* ========================================
+   MODAL SYSTEM
+   ======================================== */
+
 .modal {
     position: fixed;
     top: 0;
@@ -360,6 +378,19 @@ legend {
 }
 
 .modal-content h3 {
+    margin-bottom: 1.5rem;
+}
+
+/* 🆕 Modal form improvements */
+.modal-content form {
+    margin-top: 1rem;
+}
+
+.modal-content .form-group {
+    margin-bottom: 1.25rem;
+}
+
+.modal-content .form-group:last-of-type {
     margin-bottom: 1.5rem;
 }
 
@@ -401,7 +432,10 @@ legend {
     color: #666;
 }
 
-/* Responsive adjustments */
+/* ========================================
+   RESPONSIVE ADJUSTMENTS
+   ======================================== */
+
 @media (max-width: 768px) {
     #rides-container {
         grid-template-columns: 1fr;
