@@ -29,5 +29,14 @@ window.analytics = {
 
   contactViewed: function(method) {
     this.trackEvent('contact-viewed', { method });
+  },
+
+  // Location-related events
+  locationAdded: function(locationName, locationType) {
+    this.trackEvent('location-added', { locationName, locationType });
+  },
+
+  locationReused: function(locationId) {
+    this.trackEvent('location-reused', { locationId });
   }
 };

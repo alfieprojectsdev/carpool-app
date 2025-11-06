@@ -263,13 +263,23 @@
                     const result = await response.json();
 
                     if (response.ok) {
+                        // 🧠 Analytics tracking
+                        if (result.is_existing) {
+                            window.analytics?.locationReused?.(result.location_id);
+                        } else {
+                            window.analytics?.locationAdded?.(
+                                locationData.location_name,
+                                locationData.location_type
+                            );
+                        }
+
                         // Reload locations
                         await loadLocations();
-                        
+
                         // Select the newly added location
                         const targetSelect = document.getElementById(modal.dataset.selectId);
                         targetSelect.value = result.location_id;
-                        
+
                         alert(`✓ Location "${locationData.location_name}" added successfully!`);
                         modal.remove();
                     } else {

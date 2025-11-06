@@ -42,7 +42,10 @@ router.post('/', async (req, res) => {
 
     if (existingCheck.rows.length > 0) {
       // ✅ Return existing instead of error
-      return res.status(200).json(existingCheck.rows[0]);
+      return res.status(200).json({
+        ...existingCheck.rows[0],
+        is_existing: true
+      });
     }
 
     // ✅ Insert new location
@@ -51,7 +54,10 @@ router.post('/', async (req, res) => {
       [trimmedName, finalType]
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({
+      ...result.rows[0],
+      is_existing: false
+    });
   } catch (err) {
     console.error('Error creating location:', err);
     res.status(500).json({ error: 'Failed to create location' });
