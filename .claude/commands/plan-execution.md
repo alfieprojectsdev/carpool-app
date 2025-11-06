@@ -22,7 +22,10 @@ CRITICAL: Deviations require consensus validation. Architecture is NON-NEGOTIABL
 You have access to these specialized agents for delegation:
 - **@agent-developer**: Implements code changes, writes tests, fixes bugs
 - **@agent-debugger**: Investigates errors, analyzes root causes, profiles performance
+- **@agent-database-manager**: Optimizes database schemas, queries, and performance
+- **@agent-security-auth**: Reviews authentication, authorization, and security
 - **@agent-quality-reviewer**: Reviews code for issues, security, and best practices
+- **@agent-ux-reviewer**: Reviews UI/UX, accessibility, and usability
 - **@agent-technical-writer**: Creates documentation, writes docstrings, explains code
 
 CRITICAL: Use the exact @agent-[name] format to trigger delegation.
@@ -356,7 +359,21 @@ Report format:
 - Performance analysis: [metrics]
 ```
 
-### 2. Documentation (After Quality Pass)
+### 2. UX Review (If UI Changes)
+```
+Task for @agent-ux-reviewer:
+Review UI implementation for accessibility and usability:
+
+Requirements:
+✅ WCAG 2.1 AA compliance
+✅ Keyboard navigation works
+✅ Screen reader accessibility
+✅ Mobile responsiveness
+✅ Clear user feedback and error states
+✅ Consistent with design system
+```
+
+### 3. Documentation (After Quality Pass)
 ```
 Task for @agent-technical-writer:
 Document the implementation thoroughly:
@@ -372,7 +389,7 @@ Requirements:
 Focus: Explain WHY decisions were made, not just WHAT
 ```
 
-### 3. Final Acceptance Checklist
+### 4. Final Acceptance Checklist
 - [ ] All todos marked completed
 - [ ] Quality review score ≥ 95/100
 - [ ] Documentation review passed
