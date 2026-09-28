@@ -351,47 +351,29 @@ select option[value="__add_new__"] {
 }
 
 /* ========================================
-   MODAL SYSTEM
+   DIALOGS (native <dialog>: Esc closes, focus is handled by the browser)
    ======================================== */
 
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: white;
-    padding: 2rem;
+dialog {
+    border: none;
     border-radius: 8px;
-    max-width: 500px;
-    width: 90%;
-    max-height: 80vh;
+    padding: 2rem;
+    width: min(500px, calc(100vw - 2rem));
+    max-height: 85vh;
     overflow-y: auto;
+    margin: auto;
 }
 
-.modal-content h3 {
-    margin-bottom: 1.5rem;
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
 }
 
-/* 🆕 Modal form improvements */
-.modal-content form {
-    margin-top: 1rem;
+dialog h3 {
+    margin-bottom: 1rem;
 }
 
-.modal-content .form-group {
+dialog .form-group {
     margin-bottom: 1.25rem;
-}
-
-.modal-content .form-group:last-of-type {
-    margin-bottom: 1.5rem;
 }
 
 .btn-cancel {
@@ -458,7 +440,199 @@ select option[value="__add_new__"] {
         flex-direction: column;
     }
 
-    .modal-content {
+    dialog {
         padding: 1.5rem;
     }
+}
+
+/* ========================================
+   2026-09 additions: gate, panels, my rides, filters, feedback
+   ======================================== */
+
+[hidden] {
+    display: none !important;
+}
+
+.panel {
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.panel h2 {
+    margin-bottom: 1rem;
+    color: #444;
+}
+
+#rides-list.panel {
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+}
+
+.notice {
+    border-left: 4px solid #667eea;
+}
+
+.hint {
+    display: block;
+    color: #555;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.copy-row {
+    display: flex;
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.copy-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.btn-secondary,
+.btn-danger {
+    border: 1px solid #667eea;
+    background: white;
+    color: #4c51bf;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-danger {
+    border-color: #c53030;
+    color: #c53030;
+}
+
+.btn-secondary:hover {
+    background: #eef0ff;
+}
+
+.btn-danger:hover {
+    background: #fff5f5;
+}
+
+.link-button {
+    background: none;
+    border: none;
+    color: #4c51bf;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible,
+.link-button:focus-visible,
+.feedback-button:focus-visible {
+    outline: 3px solid #667eea;
+    outline-offset: 2px;
+}
+
+.my-ride {
+    padding: 1rem 0;
+    border-top: 1px solid #eee;
+}
+
+.my-ride:first-child {
+    border-top: none;
+}
+
+.my-ride-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.badge.mine {
+    background: #e6fffa;
+    color: #234e52;
+}
+
+.interest-count {
+    color: #555;
+    font-size: 0.875rem;
+    align-self: center;
+}
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.filters label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.875rem;
+    color: #444;
+}
+
+.filters select {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    min-width: 9rem;
+}
+
+.leave {
+    text-align: center;
+    margin: 2rem 0 5rem;
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.chips label {
+    border: 1px solid #ccc;
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    cursor: pointer;
+}
+
+.chips label:has(input:checked) {
+    border-color: #667eea;
+    background: #eef0ff;
+}
+
+.honeypot {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+.feedback-button {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 100;
+    background: #2d3748;
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.feedback-button:hover {
+    background: #4a5568;
 }

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Carpool - Phirst Park Homes</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/js/analytics.js" defer></script>
+    <script src="/js/app.js" defer></script>
+    <script data-goatcounter="https://ithinkandicode.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</head>
+<body>
+    <header>
+        <h1>🚗 Carpool Matcher</h1>
+        <p>Find rideshares in your community</p>
+    </header>
+
+    <main>
+        <p id="loading" class="loading">Loading…</p>
+
+        <!-- Shown until the resident enters the community passcode -->
+        <section id="gate" class="panel" hidden>
+            <h2>Residents only</h2>
+            <p>Enter the community passcode from the pinned post in the group chat.</p>
+            <form id="gate-form">
+                <div class="form-group">
+                    <label for="passcode">Community passcode</label>
+                    <input type="password" id="passcode" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn-submit">Enter</button>
+                <p id="gate-message" class="form-message" role="alert" hidden></p>
+            </form>
+        </section>
+
+        <div id="board" hidden>
+            <!-- Rides this browser posted (manage tokens kept in localStorage) -->
+            <section id="my-rides" class="panel" hidden>
+                <h2>My rides</h2>
+                <div id="my-rides-list"></div>
+            </section>
+
+            <section id="post-ride-section" class="panel">
+                <h2>Post a Ride</h2>
+                <form id="post-ride-form" novalidate>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Your name *</label>
+                            <input type="text" id="name" name="name" maxlength="100" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="contact_method">Contact method *</label>
+                            <select id="contact_method" name="contact_method" required>
+                                <option value="">Choose…</option>
+                                <option value="messenger">Messenger</option>
+                                <option value="viber">Viber</option>
+                                <option value="phone">Phone</option>
+                                <option value="telegram">Telegram</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="contact_info">Contact info *</label>
+                        <input type="text" id="contact_info" name="contact_info" maxlength="100" required
+                               placeholder="e.g., facebook.com/yourname or 0917-123-4567">
+                        <small class="hint">Shown to residents who have the community passcode.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="post_type">I want to *</label>
+                        <select id="post_type" name="post_type" required>
+                            <option value="">Choose…</option>
+                            <option value="offer">Offer a ride (I'm driving)</option>
+                            <option value="request">Request a ride (I need a ride)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="origin">From *</label>
+                            <select id="origin" name="origin" class="location-select" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="destination">To *</label>
+                            <select id="destination" name="destination" class="location-select" required></select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <fieldset>
+                            <legend>Days of week *</legend>
+                            <div class="checkbox-group" id="days-group"></div>
+                        </fieldset>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="departure_time">Departure time (optional)</label>
+                        <input type="time" id="departure_time" name="departure_time">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">Notes (optional)</label>
+                        <textarea id="notes" name="notes" rows="3" maxlength="500" placeholder="Any other details…"></textarea>
+                    </div>
+
+                    <div id="vehicle-fields" hidden>
+                        <div class="form-group">
+                            <label for="vehicle_model">Vehicle model (optional)</label>
+                            <input type="text" id="vehicle_model" name="vehicle_model" maxlength="100"
+                                   placeholder="e.g., Toyota Vios, Honda City">
+                        </div>
+                        <div class="form-group">
+                            <label for="available_seats">Available seats (optional)</label>
+                            <input type="number" id="available_seats" name="available_seats" min="1" max="10">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Post Ride</button>
+                    <p id="form-message" class="form-message" role="alert" hidden></p>
+                </form>
+            </section>
+
+            <!-- Shown once after posting: the only copy of the manage link -->
+            <section id="posted" class="panel notice" hidden>
+                <h2>Your ride is up</h2>
+                <p>Keep this link to edit or remove the ride and to see who is interested. This browser remembers it too.</p>
+                <div class="copy-row">
+                    <input type="text" id="manage-link" readonly aria-label="Manage link">
+                    <button type="button" id="copy-manage-link" class="btn-secondary">Copy</button>
+                </div>
+                <button type="button" id="dismiss-posted" class="btn-cancel">Done</button>
+            </section>
+
+            <section id="rides-list" class="panel">
+                <h2>Available Rides</h2>
+                <div class="filters">
+                    <label>Type
+                        <select id="filter-type">
+                            <option value="">All</option>
+                            <option value="offer">Offers</option>
+                            <option value="request">Requests</option>
+                        </select>
+                    </label>
+                    <label>From <select id="filter-origin"><option value="">Anywhere</option></select></label>
+                    <label>To <select id="filter-destination"><option value="">Anywhere</option></select></label>
+                    <label>Day
+                        <select id="filter-day"><option value="">Any day</option></select>
+                    </label>
+                </div>
+                <div id="rides-container" aria-live="polite"></div>
+            </section>
+
+            <p class="leave"><button type="button" id="leave" class="link-button">Sign out on this device</button></p>
+        </div>
+    </main>
+
+    <button type="button" id="feedback-open" class="feedback-button">Feedback</button>
+
+    <!-- Dialogs -->
+    <dialog id="location-dialog" aria-labelledby="location-dialog-title">
+        <form id="location-form" method="dialog">
+            <h3 id="location-dialog-title">Add a location</h3>
+            <div class="form-group">
+                <label for="new-location-name">Location name *</label>
+                <input type="text" id="new-location-name" maxlength="60" required placeholder="e.g., SM Clark">
+            </div>
+            <div class="form-group">
+                <label for="new-location-type">Type</label>
+                <select id="new-location-type">
+                    <option value="commercial">Commercial</option>
+                    <option value="residential">Residential</option>
+                    <option value="terminal">Terminal</option>
+                </select>
+            </div>
+            <p id="location-message" class="form-message error" role="alert" hidden></p>
+            <button type="submit" class="btn-submit" value="add">Add location</button>
+            <button type="button" class="btn-cancel" data-close>Cancel</button>
+        </form>
+    </dialog>
+
+    <dialog id="interest-dialog" aria-labelledby="interest-dialog-title">
+        <form id="interest-form" method="dialog">
+            <h3 id="interest-dialog-title">I'm interested</h3>
+            <p class="hint">Only the person who posted this ride will see your details.</p>
+            <div class="form-group">
+                <label for="interest-name">Your name *</label>
+                <input type="text" id="interest-name" maxlength="100" required>
+            </div>
+            <div class="form-group">
+                <label for="interest-contact-method">How to contact you *</label>
+                <select id="interest-contact-method" required>
+                    <option value="messenger">Messenger</option>
+                    <option value="viber">Viber</option>
+                    <option value="phone">Phone</option>
+                    <option value="telegram">Telegram</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="interest-contact-info">Contact info *</label>
+                <input type="text" id="interest-contact-info" maxlength="100" required>
+            </div>
+            <p id="interest-message" class="form-message error" role="alert" hidden></p>
+            <button type="submit" class="btn-submit" value="send">Send</button>
+            <button type="button" class="btn-cancel" data-close>Cancel</button>
+        </form>
+    </dialog>
+
+    <dialog id="interests-dialog" aria-labelledby="interests-dialog-title">
+        <h3 id="interests-dialog-title">People interested in your ride</h3>
+        <div id="interests-list" class="interests-list"></div>
+        <button type="button" class="btn-cancel" data-close>Close</button>
+    </dialog>
+
+    <dialog id="edit-dialog" aria-labelledby="edit-dialog-title">
+        <form id="edit-form" method="dialog">
+            <h3 id="edit-dialog-title">Edit ride</h3>
+            <fieldset>
+                <legend>Days of week *</legend>
+                <div class="checkbox-group" id="edit-days-group"></div>
+            </fieldset>
+            <div class="form-group">
+                <label for="edit-time">Departure time</label>
+                <input type="time" id="edit-time">
+            </div>
+            <div class="form-group">
+                <label for="edit-notes">Notes</label>
+                <textarea id="edit-notes" rows="3" maxlength="500"></textarea>
+            </div>
+            <div class="form-group" id="edit-seats-group">
+                <label for="edit-seats">Available seats</label>
+                <input type="number" id="edit-seats" min="1" max="10">
+            </div>
+            <p id="edit-message" class="form-message error" role="alert" hidden></p>
+            <button type="submit" class="btn-submit" value="save">Save</button>
+            <button type="button" class="btn-cancel" data-close>Cancel</button>
+        </form>
+    </dialog>
+
+    <dialog id="feedback-dialog" aria-labelledby="feedback-dialog-title">
+        <form id="feedback-form" method="dialog">
+            <h3 id="feedback-dialog-title">Send feedback</h3>
+            <p class="hint">Tell us what went wrong or what would help.</p>
+            <fieldset>
+                <legend>What is it about?</legend>
+                <div class="chips">
+                    <label><input type="radio" name="feedback-kind" value="problem" checked> Something is wrong</label>
+                    <label><input type="radio" name="feedback-kind" value="idea"> Idea</label>
+                    <label><input type="radio" name="feedback-kind" value="other"> Other</label>
+                </div>
+            </fieldset>
+            <div class="form-group">
+                <label for="feedback-message">Message *</label>
+                <textarea id="feedback-message" rows="4" maxlength="2000" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="feedback-contact">How can we reach you? (optional)</label>
+                <input type="text" id="feedback-contact" maxlength="200" placeholder="Messenger, phone or email">
+            </div>
+            <div class="honeypot" aria-hidden="true">
+                <label for="feedback-website">Website</label>
+                <input type="text" id="feedback-website" tabindex="-1" autocomplete="off">
+            </div>
+            <p id="feedback-status" class="form-message" role="alert" hidden></p>
+            <button type="submit" class="btn-submit" value="send">Send</button>
+            <button type="button" class="btn-cancel" data-close>Close</button>
+        </form>
+    </dialog>
+</body>
+</html>

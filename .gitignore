@@ -1,41 +1,36 @@
 # Dependencies
 node_modules/
 
-# Environment variables (NEVER commit passwords!)
+# Environment variables (never commit real values)
 .env
-.env.example
+.env.*
+!.env.example
 
-# OS files
+# OS / editor
 .DS_Store
 Thumbs.db
-
-# Editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Logs
+# Logs, coverage, deploy links
 *.log
 npm-debug.log*
+coverage/
+.vercel
 
-
-# Worktrees directory
+# Worktrees
 .trees/
-scripts/
+.claude/worktrees/
 
-# Claude AI files
+# Local AI-assistant notes (kept private)
 CLAUDE.md
-.claude/
+.claude/settings.local.json
 
-# Documentation notes
-docs/
+# Documentation notes are local-only, except the deploy runbook
+docs/*
+!docs/PRODUCTION_READINESS.md
 
-# Playwright test artifacts
-playwright-report/
-playwright.config.js
-test-results/
-tests/
-
-# manual DB edits
-db/
+# Scratch SQL for manual database edits
+db/*.local.sql

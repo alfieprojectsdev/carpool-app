@@ -1,17 +1,20 @@
 // db/connection.js
-// Single purpose: Create and export database connection pool
+// Shared PostgreSQL pool. Production uses Neon via DATABASE_URL; local
+// development can use either DATABASE_URL or the DB_* variables.
 
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Railway provides DATABASE_URL, local dev uses individual variables
 const pool = new Pool(
   process.env.DATABASE_URL
     ? {
         connectionString: process.env.DATABASE_URL,
-        ssl: {
-          rejectUnauthorized: false // Required for Railway PostgreSQL
-        }
+        // Serverless: each instance keeps a small pool; Neon's pooled
+        // endpoint (-pooler host) multiplexes the rest.
+        max: 3,
+        idleTimeoutMillis: 30000,
+        // Neon can take a few seconds to wake a suspended compute.
+        connectionTimeoutMillis: 15000,
       }
     : {
         user: process.env.DB_USER,
@@ -22,14 +25,11 @@ const pool = new Pool(
       }
 );
 
-// Test connection on startup
-pool.on('connect', () => {
-  console.log('✓ Connected to PostgreSQL database');
-});
-
+// An idle client can error when Neon closes the connection. The pool drops
+// that client and makes a new one on the next query; exiting the process here
+// (as this file used to) would kill the whole server for it.
 pool.on('error', (err) => {
-  console.error('Unexpected database error:', err);
-  process.exit(-1);
+  console.error('Idle database client error:', err.message);
 });
 
 module.exports = pool;

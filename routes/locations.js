@@ -1,67 +1,46 @@
 // routes/locations.js
 const express = require('express');
-const router = express.Router();
-const pool = require('../db/connection');
+const { requireMember } = require('../lib/membership');
+const { limit } = require('../lib/rate-limit');
+const { location } = require('../lib/validation');
 
-// GET /api/locations - List all locations
-router.get('/', async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT * FROM locations ORDER BY location_name ASC'
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching locations:', err);
-    res.status(500).json({ error: 'Failed to fetch locations' });
-  }
-});
+module.exports = function locationsRouter(pool, wrap) {
+  const router = express.Router();
+  router.use(requireMember);
 
-// POST /api/locations - Add new location (or return existing one)
-router.post('/', async (req, res) => {
-  try {
-    const { location_name, location_type } = req.body;
+  // GET /api/locations
+  router.get(
+    '/',
+    wrap(async (req, res) => {
+      const result = await pool.query(
+        'SELECT location_id, location_name, location_type FROM locations ORDER BY location_name ASC'
+      );
+      res.json(result.rows);
+    })
+  );
 
-    // Validation
-    if (!location_name || location_name.trim().length === 0) {
-      return res.status(400).json({ error: 'Location name is required' });
-    }
+  // POST /api/locations - add a place, or return the existing one (case-insensitive)
+  router.post(
+    '/',
+    limit(pool, 'add-location', 10, 60 * 60 * 1000, 'Too many new locations this hour.'),
+    wrap(async (req, res) => {
+      const { location_name, location_type } = location(req.body || {});
+      const inserted = await pool.query(
+        `INSERT INTO locations (location_name, location_type) VALUES ($1, $2)
+         ON CONFLICT DO NOTHING
+         RETURNING location_id, location_name, location_type`,
+        [location_name, location_type]
+      );
+      if (inserted.rows.length > 0) {
+        return res.status(201).json({ ...inserted.rows[0], is_existing: false });
+      }
+      const existing = await pool.query(
+        'SELECT location_id, location_name, location_type FROM locations WHERE LOWER(location_name) = LOWER($1)',
+        [location_name]
+      );
+      res.status(200).json({ ...existing.rows[0], is_existing: true });
+    })
+  );
 
-    if (location_name.length > 100) {
-      return res.status(400).json({ error: 'Location name too long (max 100 characters)' });
-    }
-
-    const validTypes = ['residential', 'commercial', 'terminal'];
-    const finalType = validTypes.includes(location_type) ? location_type : 'commercial';
-    const trimmedName = location_name.trim();
-
-    // Check if already exists (case-insensitive)
-    const existingCheck = await pool.query(
-      'SELECT location_id, location_name, location_type FROM locations WHERE LOWER(location_name) = LOWER($1)',
-      [trimmedName]
-    );
-
-    if (existingCheck.rows.length > 0) {
-      // ✅ Return existing instead of error
-      return res.status(200).json({
-        ...existingCheck.rows[0],
-        is_existing: true
-      });
-    }
-
-    // ✅ Insert new location
-    const result = await pool.query(
-      'INSERT INTO locations (location_name, location_type) VALUES ($1, $2) RETURNING *',
-      [trimmedName, finalType]
-    );
-
-    res.status(201).json({
-      ...result.rows[0],
-      is_existing: false
-    });
-  } catch (err) {
-    console.error('Error creating location:', err);
-    res.status(500).json({ error: 'Failed to create location' });
-  }
-});
-
-module.exports = router;
+  return router;
+};
