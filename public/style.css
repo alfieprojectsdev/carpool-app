@@ -636,3 +636,14 @@ dialog .form-group {
 .feedback-button:hover {
     background: #4a5568;
 }
+
+/* Space between a panel's intro text and the form below it. */
+.panel > p {
+    margin-bottom: 1rem;
+}
+
+/* A lone button (not paired with a submit button) needs no left gap. */
+#posted > .btn-cancel,
+dialog > .btn-cancel {
+    margin-left: 0;
+}

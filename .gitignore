@@ -31,6 +31,7 @@ CLAUDE.md
 # Documentation notes are local-only, except the deploy runbook
 docs/*
 !docs/PRODUCTION_READINESS.md
+!docs/screenshots/
 
 # Scratch SQL for manual database edits
 db/*.local.sql

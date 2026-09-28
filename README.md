@@ -5,6 +5,20 @@ community group chat for "anyone going to Dau at 6?". Residents post ride
 offers and requests (route, days, time, seats); other residents browse,
 filter, and either contact the poster directly or tap "I'm interested".
 
+![The ride board: filters by type, route and day, with each post's schedule, vehicle and contact](docs/screenshots/ride-board.png)
+
+On a phone: the passcode screen, posting a ride, the private manage link
+shown once after posting, and the poster's list of interested riders.
+
+<p>
+  <img src="docs/screenshots/passcode-gate.png" width="200" alt="Residents-only passcode screen">
+  <img src="docs/screenshots/post-ride-form.png" width="200" alt="Post a ride form">
+  <img src="docs/screenshots/manage-link.png" width="200" alt="Manage link shown after posting">
+  <img src="docs/screenshots/who-is-interested.png" width="200" alt="Poster's view of interested riders">
+</p>
+
+Screenshots are from a local run on 2026-09-29 with made-up residents.
+
 ## How it works
 
 - The board sits behind one shared passcode (`COMMUNITY_PASSCODE`), posted in
