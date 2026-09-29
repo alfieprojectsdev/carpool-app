@@ -38,7 +38,9 @@ Screenshots are from a local run on 2026-09-29 with made-up residents.
 
 Node 20+, Express 4, PostgreSQL (`pg`), plain HTML/CSS/JS in `public/`.
 Hosted on Vercel (zero-config Express: `app.js` exports the app, `public/` is
-served from the CDN) with Neon Postgres.
+served from the CDN) with Neon Postgres. Production builds run `npm run build`,
+which applies pending migrations before the new code goes live; preview and
+local builds skip that step.
 
 ## Local development
 

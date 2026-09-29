@@ -47,14 +47,20 @@ expires on its own in 60 days.
 1. Create a Neon project (free plan: 0.5 GB and 100 compute-hours per
    month per project; suspends after 5 minutes idle). Copy the pooled
    connection string.
-2. Apply the migration:
-   ```bash
-   DATABASE_URL="<pooled string>" npm run db:migrate
-   ```
-3. Import the GitHub repo into Vercel (framework preset "Express" or
-   "Other"; no build command). Environment variables for Production and
+2. Import the GitHub repo into Vercel (framework preset "Express" or
+   "Other"). `vercel.json` sets the build command to `npm run build`, which
+   runs `scripts/migrate.js --vercel`: on a Production build
+   (`VERCEL_ENV=production`) it applies pending migrations from
+   `db/migrations/`, and a failed migration fails the build so the previous
+   deployment stays up. Preview builds skip it, so a pull request never
+   touches the production database. Environment variables for Production and
    Preview: `DATABASE_URL`, `COMMUNITY_PASSCODE`, optionally
    `FEEDBACK_WEBHOOK_URL`. Add a domain, e.g. `carpool.ithinkandicode.space`.
+3. Deploy main. The build log should show `ran 001_initial.sql` (or
+   `applied` on later deploys). To check or apply by hand:
+   ```bash
+   DATABASE_URL="<pooled string>" npm run db:migrate -- --status
+   ```
 4. Smoke-test on a phone: `/api/health` → `{"ok":true}`,
    `/api/health?db=1` → `"db":"ok"`; the page asks for the passcode; post a
    ride, copy the manage link, open it in another browser, edit and remove.

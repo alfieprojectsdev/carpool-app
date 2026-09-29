@@ -3,6 +3,13 @@
 //
 //   DATABASE_URL=postgres://... npm run db:migrate            apply pending
 //   DATABASE_URL=postgres://... npm run db:migrate -- --status
+//   node scripts/migrate.js --vercel                           used by `npm run build`
+//
+// With --vercel it only runs when Vercel is building Production
+// (VERCEL_ENV=production), so merging to main applies pending migrations
+// before the new code goes live. If a migration fails, the build fails and
+// the previous deployment stays up. Local, CI and preview builds skip it, so
+// a pull request can never change the production database.
 //
 // Each file runs in its own transaction and is recorded in schema_migrations.
 // Files are written to be re-runnable.
@@ -13,6 +20,11 @@ require('dotenv').config();
 
 const dir = path.join(__dirname, '..', 'db', 'migrations');
 const statusOnly = process.argv.includes('--status');
+
+if (process.argv.includes('--vercel') && process.env.VERCEL_ENV !== 'production') {
+  console.log('migrate: skipped (not a Vercel production build)');
+  process.exit(0);
+}
 
 async function main() {
   if (!process.env.DATABASE_URL) {
