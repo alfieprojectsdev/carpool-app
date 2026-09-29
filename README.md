@@ -57,6 +57,13 @@ npm run dev                  # http://localhost:3000
 | `COMMUNITY_PASSCODE` | in production | Residents' passcode; unset = public board |
 | `FEEDBACK_WEBHOOK_URL` | no | Discord webhook for feedback |
 
+Schema changes go in a new `db/migrations/00N_name.sql`, written to be
+re-runnable; production builds apply it. Tests only see an empty database, so
+before merging a pull request that adds a migration, dry-run it on a Neon
+branch of production (steps in `docs/PRODUCTION_READINESS.md`, "Changing the
+schema after launch"). Neon access is Alfie's: ask Alfie to run it and paste
+the output into the pull request.
+
 ## Tests
 
 ```bash
@@ -64,8 +71,11 @@ npm test
 ```
 
 Vitest + Supertest against PGlite (Postgres compiled to WASM) with the real
-migration applied; no database server needed. GitHub Actions runs them on
-every push and pull request.
+migration applied; no database server needed. `test/migrate.test.mjs` covers
+the migration runner itself: bookkeeping, rollback on failure, and the
+production-only gate in the build step. GitHub Actions is turned off for
+this repo, so run them locally before merging. `.github/workflows/ci.yml`
+runs them again if Actions is turned back on.
 
 ## API
 
