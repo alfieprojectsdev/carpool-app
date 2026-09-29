@@ -1,163 +1,91 @@
-# Carpool App
+# Carpool board
 
-A simple web application for coordinating carpools within the Phirst Park Homes community.
+A ride board for Phirst Park Homes residents, built to replace scrolling the
+community group chat for "anyone going to Dau at 6?". Residents post ride
+offers and requests (route, days, time, seats); other residents browse,
+filter, and either contact the poster directly or tap "I'm interested".
 
-## Features
+![The ride board: filters by type, route and day, with each post's schedule, vehicle and contact](docs/screenshots/ride-board.png)
 
-- **Browse Available Rides** - View all active carpool offers and requests
-- **Post Rides** - Offer rides or request carpools with detailed schedule information
-- **Route Matching** - Filter by common locations (Dau, Cubao, BGC, Manila, etc.)
-- **Contact Integration** - Direct contact info for ride coordination (Messenger, Viber, Phone, Telegram)
-- **Responsive Design** - Works on mobile and desktop
+On a phone: the passcode screen, posting a ride, the private manage link
+shown once after posting, and the poster's list of interested riders.
 
-## Tech Stack
+<p>
+  <img src="docs/screenshots/passcode-gate.png" width="200" alt="Residents-only passcode screen">
+  <img src="docs/screenshots/post-ride-form.png" width="200" alt="Post a ride form">
+  <img src="docs/screenshots/manage-link.png" width="200" alt="Manage link shown after posting">
+  <img src="docs/screenshots/who-is-interested.png" width="200" alt="Poster's view of interested riders">
+</p>
 
-- **Backend**: Node.js + Express
-- **Database**: PostgreSQL
-- **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **Dev Tools**: nodemon for auto-restart
+Screenshots are from a local run on 2026-09-29 with made-up residents.
 
-## Prerequisites
+## How it works
 
-- Node.js (v16 or higher)
-- PostgreSQL (v12 or higher)
-- npm or yarn
+- The board sits behind one shared passcode (`COMMUNITY_PASSCODE`), posted in
+  the group chat. Entering it once sets a signed cookie for 180 days, and
+  changing the passcode signs everyone out.
+- There are no accounts. Posting a ride returns a private manage link
+  (`/#manage=<id>.<token>`), which this browser remembers under "My rides" and
+  which works on any device. Only that link can edit, renew or remove the
+  ride, or see who is interested. The server stores a SHA-256 of the token,
+  not the token.
+- "I'm interested" sends your name and contact to the poster only.
+- Posts drop off after 60 days unless the poster renews them.
+- A Feedback button on every page saves to the `feedback` table and can also
+  post to a Discord channel.
 
-## Installation
+## Stack
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/alfieprojectsdev/carpool-app.git
-   cd carpool-app
-   ```
+Node 20+, Express 4, PostgreSQL (`pg`), plain HTML/CSS/JS in `public/`.
+Hosted on Vercel (zero-config Express: `app.js` exports the app, `public/` is
+served from the CDN) with Neon Postgres. Production builds run `npm run build`,
+which applies pending migrations before the new code goes live; preview and
+local builds skip that step.
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up PostgreSQL database**
-   ```bash
-   # Create database
-   createdb -U ltpt420 carpool_db
-   
-   # Load schema
-   psql carpool_db < db/schema.sql
-   ```
-
-4. **Configure environment variables**
-   
-   Create a `.env` file in the root directory:
-   ```bash
-   DB_USER=ltpt420
-   DB_HOST=localhost
-   DB_NAME=carpool_db
-   DB_PASSWORD=your_password
-   DB_PORT=5432
-   PORT=3000
-   ```
-
-5. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-6. **Access the app**
-   
-   Open your browser to: `http://localhost:3000`
-
-## Project Structure
-
-```
-carpool-app/
-├── db/
-│   ├── connection.js    # PostgreSQL connection pool
-│   └── schema.sql       # Database schema
-├── routes/
-│   └── rides.js         # Ride-related API endpoints
-├── public/
-│   ├── index.html       # Frontend UI
-│   └── style.css        # Styles
-├── server.js            # Express server entry point
-├── package.json         # Dependencies
-└── .env                 # Environment variables (not tracked)
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/rides` | List all active rides |
-| GET | `/api/rides/:id` | Get single ride details |
-| POST | `/api/rides` | Create new ride post |
-| PUT | `/api/rides/:id` | Update ride post |
-| DELETE | `/api/rides/:id` | Deactivate ride post |
-| GET | `/api/locations` | Get all locations |
-| POST | `/api/users` | Create new user |
-
-## Database Schema
-
-### Tables
-- **users** - User profiles with contact information
-- **locations** - Common pickup/dropoff locations
-- **ride_posts** - Ride offers and requests
-
-### Views
-- **active_rides** - Denormalized view of active rides with user and location details
-
-## Development
+## Local development
 
 ```bash
-# Start with auto-reload
-npm run dev
-
-# Start production mode
-npm start
+npm install
+cp .env.example .env         # DATABASE_URL at minimum
+npm run db:migrate           # applies db/migrations/*.sql
+npm run dev                  # http://localhost:3000
 ```
 
-## Troubleshooting
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `DATABASE_URL` | yes | Postgres connection string |
+| `COMMUNITY_PASSCODE` | in production | Residents' passcode; unset = public board |
+| `FEEDBACK_WEBHOOK_URL` | no | Discord webhook for feedback |
 
-### "client password must be a string" error
-- **Cause**: `DB_PASSWORD` set to empty string in `.env`
-- **Fix**: Either remove `DB_PASSWORD` entirely (for peer auth) OR set it to actual password
+## Tests
 
-### PostgreSQL connection failed
 ```bash
-# Check if PostgreSQL is running
-pg_isready
-
-# Restart PostgreSQL if needed
-sudo systemctl restart postgresql
+npm test
 ```
 
-### Reset database
-```bash
-dropdb carpool_db
-createdb carpool_db
-psql carpool_db < db/schema.sql
-```
+Vitest + Supertest against PGlite (Postgres compiled to WASM) with the real
+migration applied; no database server needed. GitHub Actions runs them on
+every push and pull request.
 
-## Roadmap
+## API
 
-- [ ] User authentication (login/signup)
-- [ ] Edit/delete own posts
-- [ ] Filter and search functionality
-- [ ] Real-time notifications
-- [ ] Mobile app version
+| Method | Path | Who |
+|--------|------|-----|
+| GET | `/api/session` | anyone: `{ member, gate }` |
+| POST | `/api/join` | anyone: `{ passcode }` → member cookie (10 tries / 15 min / IP) |
+| POST | `/api/leave` | clears the cookie |
+| GET | `/api/rides` | members |
+| POST | `/api/rides` | members (10 / hour / IP) → `{ post_id, manage_token }` |
+| PUT | `/api/rides/:id` | manage token (`X-Manage-Token`); `{ days_of_week, departure_time, notes, vehicle_model, available_seats, renew }` |
+| DELETE | `/api/rides/:id` | manage token |
+| GET | `/api/rides/:id/interests` | manage token |
+| POST | `/api/rides/:id/interests` | members (20 / hour / IP) |
+| GET / POST | `/api/locations` | members (POST 10 / hour / IP) |
+| POST | `/api/feedback` | anyone (5 / hour / IP) |
+| GET | `/api/health` (`?db=1`) | anyone |
 
-## Contributing
-
-This is a community project for Phirst Park Homes residents. Contributions welcome!
+Deployment steps and the September 2026 audit: [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
 
 ## License
 
 MIT
-
-## Author
-
-Built as a learning project for community benefit.
-
-## Acknowledgments
-
-- Inspired by the carpool coordination needs in the Phirst Park Homes community
-- Built with guidance from Claude (Anthropic)

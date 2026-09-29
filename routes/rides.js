@@ -1,205 +1,195 @@
 // routes/rides.js
-// All ride-related endpoints in ONE place
+// Ride posts. There are no accounts: whoever posts a ride gets a random
+// manage token (shown once as a "manage link"), and only that token can edit
+// or remove the ride or see who is interested. The database stores its
+// sha256, so a database leak does not hand out edit rights.
 
+const crypto = require('crypto');
 const express = require('express');
-const router = express.Router();
-const pool = require('../db/connection');
+const { requireMember } = require('../lib/membership');
+const { limit } = require('../lib/rate-limit');
+const { newRide, rideUpdate, interest } = require('../lib/validation');
 
-// GET /api/rides - List all active rides
-router.get('/', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT ar.*,
-             COALESCE(interest_counts.count, 0) AS interest_count
-      FROM active_rides ar
-      LEFT JOIN (
-        SELECT ride_id, COUNT(*) as count
-        FROM ride_interests
-        GROUP BY ride_id
-      ) interest_counts ON ar.post_id = interest_counts.ride_id
-      ORDER BY ar.created_at DESC
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching rides:', err);
-    res.status(500).json({ error: 'Failed to fetch rides' });
+const HOUR = 60 * 60 * 1000;
+
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+function rideId(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) {
+    res.status(400).json({ error: 'Invalid ride id' });
+    return null;
   }
-});
+  return id;
+}
 
-// GET /api/rides/:id - Get single ride
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
+module.exports = function ridesRouter(pool, wrap) {
+  const router = express.Router();
+  router.use(requireMember);
+
+  /** Loads the ride if the X-Manage-Token header matches; otherwise responds 403/404. */
+  async function ownedRide(req, res) {
+    const id = rideId(req, res);
+    if (id === null) return null;
+    const token = req.get('X-Manage-Token');
     const result = await pool.query(
-      'SELECT * FROM active_rides WHERE post_id = $1',
+      'SELECT post_id, manage_token_hash, is_active FROM ride_posts WHERE post_id = $1',
       [id]
     );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Ride not found' });
+    const ride = result.rows[0];
+    if (!ride || !ride.is_active) {
+      res.status(404).json({ error: 'Ride not found' });
+      return null;
     }
-    
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error fetching ride:', err);
-    res.status(500).json({ error: 'Failed to fetch ride' });
+    const supplied = Buffer.from(hashToken(typeof token === 'string' ? token : ''));
+    if (!crypto.timingSafeEqual(supplied, Buffer.from(ride.manage_token_hash))) {
+      res.status(403).json({ error: 'This link cannot manage that ride' });
+      return null;
+    }
+    return ride;
   }
-});
 
-// POST /api/rides - Create new ride post
-router.post('/', async (req, res) => {
-  try {
-    const {
-      user_id,
-      post_type,
-      origin_id,
-      destination_id,
-      days_of_week,
-      departure_time,
-      notes,
-      vehicle_model,      // NEW
-      available_seats     // NEW
-    } = req.body;
+  // GET /api/rides - active rides with poster contact (members only)
+  router.get(
+    '/',
+    wrap(async (req, res) => {
+      const result = await pool.query(`
+        SELECT ar.*, COALESCE(ic.count, 0)::int AS interest_count
+        FROM active_rides ar
+        LEFT JOIN (SELECT ride_id, COUNT(*) AS count FROM ride_interests GROUP BY ride_id) ic
+          ON ic.ride_id = ar.post_id
+        ORDER BY ar.created_at DESC
+        LIMIT 200`);
+      res.json(result.rows);
+    })
+  );
 
-    // VALIDATION: vehicle_model length check
-    if (vehicle_model && vehicle_model.length > 100) {
-      return res.status(400).json({
-        error: 'Vehicle model must be 100 characters or less'
-      });
-    }
+  // POST /api/rides - poster details + ride in one request; returns the manage token once
+  router.post(
+    '/',
+    limit(pool, 'post-ride', 10, HOUR, 'You have posted a lot of rides this hour. Please try again later.'),
+    wrap(async (req, res) => {
+      const ride = newRide(req.body || {});
+      const token = crypto.randomBytes(24).toString('base64url');
 
-    // VALIDATION: available_seats must be reasonable if provided
-    if (available_seats !== null && available_seats !== undefined) {
-      const seats = parseInt(available_seats);
-      if (isNaN(seats) || seats < 1 || seats > 10) {
-        return res.status(400).json({
-          error: 'Available seats must be between 1 and 10'
-        });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const places = await client.query(
+          'SELECT location_id FROM locations WHERE location_id = ANY($1::int[])',
+          [[ride.origin_id, ride.destination_id]]
+        );
+        if (places.rows.length !== 2) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Unknown origin or destination' });
+        }
+        const user = await client.query(
+          'INSERT INTO users (name, contact_method, contact_info) VALUES ($1, $2, $3) RETURNING user_id',
+          [ride.name, ride.contact_method, ride.contact_info]
+        );
+        const created = await client.query(
+          `INSERT INTO ride_posts (user_id, post_type, origin_id, destination_id, days_of_week,
+             departure_time, notes, vehicle_model, available_seats, manage_token_hash)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           RETURNING post_id, expires_at`,
+          [
+            user.rows[0].user_id,
+            ride.post_type,
+            ride.origin_id,
+            ride.destination_id,
+            ride.days_of_week,
+            ride.departure_time,
+            ride.notes,
+            ride.vehicle_model,
+            ride.available_seats,
+            hashToken(token),
+          ]
+        );
+        await client.query('COMMIT');
+        res.status(201).json({ post_id: created.rows[0].post_id, expires_at: created.rows[0].expires_at, manage_token: token });
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
       }
-    }
+    })
+  );
 
-    const result = await pool.query(
-      `INSERT INTO ride_posts 
-       (user_id, post_type, origin_id, destination_id, days_of_week, departure_time, notes, vehicle_model, available_seats) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-       RETURNING *`,
-      [user_id, post_type, origin_id, destination_id, days_of_week, departure_time, notes, vehicle_model, available_seats]
-    );
-    
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error('Error creating ride:', err);
-    res.status(500).json({ error: 'Failed to create ride' });
-  }
-});
-
-// PUT /api/rides/:id - Update ride post
-router.put('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { days_of_week, departure_time, notes } = req.body;
-    
-    const result = await pool.query(
-      `UPDATE ride_posts 
-       SET days_of_week = $1, departure_time = $2, notes = $3, updated_at = CURRENT_TIMESTAMP
-       WHERE post_id = $4 AND is_active = true
-       RETURNING *`,
-      [days_of_week, departure_time, notes, id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Ride not found or already inactive' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error updating ride:', err);
-    res.status(500).json({ error: 'Failed to update ride' });
-  }
-});
-
-// DELETE /api/rides/:id - Deactivate ride post (soft delete)
-router.delete('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const result = await pool.query(
-      'UPDATE ride_posts SET is_active = false WHERE post_id = $1 RETURNING *',
-      [id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Ride not found' });
-    }
-
-    res.json({ message: 'Ride deactivated successfully' });
-  } catch (err) {
-    console.error('Error deleting ride:', err);
-    res.status(500).json({ error: 'Failed to delete ride' });
-  }
-});
-
-// GET /api/rides/:id/interests - Get list of interested people
-router.get('/:id/interests', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query(
-      'SELECT interested_name, contact_method, contact_info, created_at FROM ride_interests WHERE ride_id = $1 ORDER BY created_at DESC',
-      [id]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Error fetching interests:', err);
-    res.status(500).json({ error: 'Failed to fetch interests' });
-  }
-});
-
-// POST /api/rides/:id/interests - Show interest
-router.post('/:id/interests', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { interested_name, contact_method, contact_info } = req.body;
-
-    // Validation
-    if (!interested_name || interested_name.trim().length === 0) {
-      return res.status(400).json({ error: 'Name is required' });
-    }
-    if (interested_name.length > 100) {
-      return res.status(400).json({ error: 'Name too long (max 100 characters)' });
-    }
-    if (!['messenger', 'viber', 'phone', 'telegram'].includes(contact_method)) {
-      return res.status(400).json({ error: 'Invalid contact method' });
-    }
-    if (!contact_info || contact_info.trim().length === 0) {
-      return res.status(400).json({ error: 'Contact info is required' });
-    }
-    if (contact_info.length > 100) {
-      return res.status(400).json({ error: 'Contact info too long (max 100 characters)' });
-    }
-
-    const trimmedName = interested_name.trim();
-    const trimmedInfo = contact_info.trim();
-
-    // Try to insert - let unique constraint handle duplicates (prevents race conditions)
-    try {
+  // PUT /api/rides/:id - edit schedule/notes/seats, or { renew: true } for another 60 days
+  router.put(
+    '/:id',
+    wrap(async (req, res) => {
+      const ride = await ownedRide(req, res);
+      if (!ride) return;
+      const update = rideUpdate(req.body || {});
+      const sets = [];
+      const params = [];
+      for (const [column, value] of Object.entries(update)) {
+        params.push(value);
+        sets.push(`${column} = $${params.length}`);
+      }
+      if (req.body && req.body.renew === true) sets.push(`expires_at = NOW() + INTERVAL '60 days'`);
+      if (sets.length === 0) return res.status(400).json({ error: 'Nothing to update' });
+      params.push(ride.post_id);
       const result = await pool.query(
-        'INSERT INTO ride_interests (ride_id, interested_name, contact_method, contact_info) VALUES ($1, $2, $3, $4) RETURNING *',
-        [id, trimmedName, contact_method, trimmedInfo]
+        `UPDATE ride_posts SET ${sets.join(', ')}, updated_at = NOW() WHERE post_id = $${params.length}
+         RETURNING post_id, expires_at`,
+        params
       );
-      res.status(201).json(result.rows[0]);
-    } catch (insertErr) {
-      if (insertErr.code === '23505') {  // Unique violation
-        return res.status(400).json({ error: 'You already showed interest in this ride' });
+      res.json(result.rows[0]);
+    })
+  );
+
+  // DELETE /api/rides/:id - take the ride off the board (soft delete)
+  router.delete(
+    '/:id',
+    wrap(async (req, res) => {
+      const ride = await ownedRide(req, res);
+      if (!ride) return;
+      await pool.query('UPDATE ride_posts SET is_active = FALSE, updated_at = NOW() WHERE post_id = $1', [ride.post_id]);
+      res.json({ message: 'Ride removed' });
+    })
+  );
+
+  // GET /api/rides/:id/interests - who is interested (poster only)
+  router.get(
+    '/:id/interests',
+    wrap(async (req, res) => {
+      const ride = await ownedRide(req, res);
+      if (!ride) return;
+      const result = await pool.query(
+        `SELECT interested_name, contact_method, contact_info, created_at
+         FROM ride_interests WHERE ride_id = $1 ORDER BY created_at DESC`,
+        [ride.post_id]
+      );
+      res.json(result.rows);
+    })
+  );
+
+  // POST /api/rides/:id/interests - "I'm interested"; only the poster sees these details
+  router.post(
+    '/:id/interests',
+    limit(pool, 'interest', 20, HOUR),
+    wrap(async (req, res) => {
+      const id = rideId(req, res);
+      if (id === null) return;
+      const data = interest(req.body || {});
+      const ride = await pool.query('SELECT 1 FROM active_rides WHERE post_id = $1', [id]);
+      if (ride.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
+      try {
+        await pool.query(
+          `INSERT INTO ride_interests (ride_id, interested_name, contact_method, contact_info)
+           VALUES ($1, $2, $3, $4)`,
+          [id, data.interested_name, data.contact_method, data.contact_info]
+        );
+      } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: 'You already showed interest in this ride' });
+        throw err;
       }
-      throw insertErr;  // Re-throw other errors
-    }
-  } catch (err) {
-    console.error('Error adding interest:', err);
-    res.status(500).json({ error: 'Failed to add interest' });
-  }
-});
+      res.status(201).json({ message: 'Interest sent' });
+    })
+  );
 
-
-
-
-module.exports = router;
+  return router;
+};
