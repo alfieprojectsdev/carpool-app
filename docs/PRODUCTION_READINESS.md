@@ -69,6 +69,38 @@ expires on its own in 60 days.
    alerts) on `/api/health`. Don't monitor `?db=1`: pinging the database every 5
    minutes would keep Neon awake and use up the free compute hours.
 
+## Changing the schema after launch
+
+`npm test` applies every migration to an empty database, and
+`test/migrate.test.mjs` checks the runner itself. None of that sees
+production's rows, and some migrations only fail on real data: a new unique
+index fails if two rows already share the value, and a new `NOT NULL` column
+without a default, or a new `CHECK`, fails if existing rows don't satisfy it.
+On Vercel that failure stops the build (the old deployment stays up), so you
+would find out at deploy time.
+
+Before merging a pull request that adds a file to `db/migrations/`, try it on
+a copy of production. Neon access is Alfie's, so anyone else preparing the
+pull request asks Alfie to run these steps and paste the output into it.
+
+1. Neon Console → project → Branches → Create branch, with the production
+   branch as parent, at the current point in time. Branches are
+   copy-on-write, so it's ready in seconds and production is untouched.
+2. Copy the new branch's pooled connection string and run:
+   ```bash
+   DATABASE_URL="<branch string>" npm run db:migrate
+   ```
+   Each pending file should print `ran`. A `FAILED` line names the file and
+   the Postgres error; fix the migration, or the rows it trips over, before
+   merging.
+3. Delete the branch, so copies of residents' phone numbers don't pile up.
+
+Migrations run during the build, before the new code goes live, and the old
+deployment keeps serving until the new one is ready (or for good, if a later
+step fails). So old code runs on the new schema for a while: add tables and
+columns freely, but drop or rename something only in a later migration, once
+no deployed code uses it.
+
 ## Tradeoffs
 
 - Anyone in the group chat can pass the shared passcode on. That
