@@ -101,6 +101,12 @@ describe('community passcode gate', () => {
     expect((await agent.get('/api/rides')).status).toBe(401);
   });
 
+  it('ignores a trailing newline in COMMUNITY_PASSCODE', async () => {
+    process.env.COMMUNITY_PASSCODE = 'magalang-2026\n';
+    const res = await request(app).post('/api/join').set('x-real-ip', freshIp()).send({ passcode: 'magalang-2026' });
+    expect(res.status).toBe(200);
+  });
+
   it('rejects a forged cookie', async () => {
     process.env.COMMUNITY_PASSCODE = 'magalang-2026';
     const now = Math.floor(Date.now() / 1000);
